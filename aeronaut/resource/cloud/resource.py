@@ -191,8 +191,8 @@ class Resource(object):
         self.__all_properties = attrs.keys()
         self.__dirty_properties = []
 
-        if not hasattr(self.__class__, attrs.keys()[0]):
-            for key in attrs.keys():
+        for key in attrs.keys():
+            if not hasattr(self.__class__, key):
                 self.__add_property(key)
 
     def __freeze(self):
