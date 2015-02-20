@@ -1,4 +1,4 @@
-from aeronaut.resource.cloud.image import Image, ImageList
+from aeronaut.resource.cloud.image import Image, ImageList, ServerImage
 
 
 class TestImage:
@@ -117,3 +117,111 @@ class TestImageList:
 
         for image in images:
             assert isinstance(image, Image)
+
+
+class TestServerImage:
+
+    # =======
+    # HELPERS
+    # =======
+
+    @property
+    def xmlstr(self):
+        return """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ServerImageWithState>
+                <id>c325fe04-7711-4968-962e-c88784eb2xyz</id>
+                <location>NA1</location>
+                <name>My New Customer Image</name>
+                <description>Image for producing web servers.</description>
+                <operatingSystem>
+                    <type>WINDOWS</type>
+                    <displayName>WIN2008E/64</displayName>
+                </operatingSystem>
+                <cpuCount>2</cpuCount>
+                <memoryMb>4096</memoryMb>
+                <osStorageGb>50</osStorageGb>
+                <additionalDisk>
+                    <id>ef49974c-87d0-400f-aa32-ee43559fdb1b</id>
+                    <scsiId>1</scsiId>
+                    <diskSizeGb>40</diskSizeGb>
+                    <state>NORMAL</state>
+                </additionalDisk>
+                <softwareLabel>SAPACCEL</softwareLabel>
+                <softwareLabel>MSSQL2008R2E</softwareLabel>
+                <source type="IMPORT">
+                    <artifact type="MF" value="MyCustomerImage.mf" date="2008-09- 29T02:49:45"/>
+                    <artifact type="OVF" value="MyCustomerImage.ovf" date="2008-09- 29T02:49:45"/>
+                    <artifact type="VMDK" value="MyCustomerImage-disk1.vmdk" date="2008- 09-29T02:49:45"/>
+                    <artifact type="VMDK" value="MyCustomerImage-disk2.vmdk" date="2008- 09-29T02:49:45"/>
+                </source>
+                <state>FAILED_ADD</state>
+                <deployedTime>2012-05-25T12:59:10.110Z</deployedTime>
+                <machineStatus name="vmwareToolsApiVersion">
+                    <value>8295</value>
+                </machineStatus>
+                <machineStatus name="vmwareToolsVersionStatus">
+                    <value>CURRENT</value>
+                </machineStatus>
+                <machineStatus name="vmwareToolsRunningStatus">
+                    <value>RUNNING</value>
+                </machineStatus>
+                <status>
+                    <action>IMAGE_IMPORT</action>
+                    <requestTime>2012-05-25T23:10:36.000Z</requestTime>
+                    <userName>theUser</userName>
+                    <numberOfSteps>3</numberOfSteps>
+                    <updateTime>2012-05-25T23:11:32.000Z</updateTime>
+                    <step>
+                        <name>WAIT_FOR_OPERATION</name>
+                        <number>3</number>
+                        <percentComplete>50</percentComplete>
+                    </step>
+                <failureReason>Operation timed out.</failureReason>
+                </status>
+            </ServerImageWithState>
+            """  # NOQA
+
+    # =====
+    # TESTS
+    # =====
+
+    def test_attributes(self):
+        image = ServerImage(self.xmlstr)
+
+        assert image.id == "c325fe04-7711-4968-962e-c88784eb2xyz"
+        assert image.location == "NA1"
+        assert image.name == "My New Customer Image"
+        assert image.description == "Image for producing web servers."
+        assert image.os.type == "WINDOWS"
+        assert image.os.name == "WIN2008E/64"
+        assert image.os_storage_gb == 50
+        assert image.cpu_count == 2
+        assert image.memory_mb == 4096
+        assert len(image.disks) == 1
+        assert image.disks[0].id == "ef49974c-87d0-400f-aa32-ee43559fdb1b"
+        assert image.disks[0].scsi_id == 1
+        assert image.disks[0].size_gb == 40
+        assert image.disks[0].state == "NORMAL"
+        assert image.disks.total_pages is None
+        assert len(image.software_labels) == 2
+        assert image.software_labels[0] == "SAPACCEL"
+        assert image.software_labels[1] == "MSSQL2008R2E"
+        assert image.source.type == "IMPORT"
+        assert len(image.source.artifacts) == 4
+        assert image.source.artifacts[0].type == "MF"
+        assert image.source.artifacts[0].value == "MyCustomerImage.mf"
+        assert image.source.artifacts[0].date == "2008-09- 29T02:49:45"
+        assert image.state == "FAILED_ADD"
+        assert image.deployed_time == "2012-05-25T12:59:10.110Z"
+        assert len(image.machine_status) == 3
+        assert image.machine_status[0].name == "vmwareToolsApiVersion"
+        assert image.machine_status[0].value == 8295
+        assert image.status.action == "IMAGE_IMPORT"
+        assert image.status.request_time == "2012-05-25T23:10:36.000Z"
+        assert image.status.username == "theUser"
+        assert image.status.update_time == "2012-05-25T23:11:32.000Z"
+        assert len(image.status.steps) == 1
+        assert image.status.steps[0].name == "WAIT_FOR_OPERATION"
+        assert image.status.steps[0].number == 3
+        assert image.status.steps[0].percent_complete == 50
+        assert image.status.failure_reason == "Operation timed out."

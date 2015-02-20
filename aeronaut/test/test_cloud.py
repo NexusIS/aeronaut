@@ -441,6 +441,95 @@ class TestCloudConnection:
         assert isinstance(account, aeronaut.resource.cloud.account.Account)
         assert account.full_name == 'Test'
 
+    # ================
+    # get_server_image
+    # ================
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_get_server_image(self, mock_httplib, mock_open, mock_yaml):
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        image_id = '1234'
+
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ServerImageWithState>
+                <id>{image_id}</id>
+                <location>NA1</location>
+                <name>My New Customer Image</name>
+                <description>Image for producing web servers.</description>
+                <operatingSystem>
+                    <type>WINDOWS</type>
+                    <displayName>WIN2008E/64</displayName>
+                </operatingSystem>
+                <cpuCount>2</cpuCount>
+                <memoryMb>4096</memoryMb>
+                <osStorageGb>50</osStorageGb>
+                <additionalDisk>
+                    <id>ef49974c-87d0-400f-aa32-ee43559fdb1b</id>
+                    <scsiId>1</scsiId>
+                    <diskSizeGb>40</diskSizeGb>
+                    <state>NORMAL</state>
+                </additionalDisk>
+                <softwareLabel>SAPACCEL</softwareLabel>
+                <softwareLabel>MSSQL2008R2E</softwareLabel>
+                <source type="IMPORT">
+                    <artifact type="MF" value="MyCustomerImage.mf" date="2008-09- 29T02:49:45"/>
+                    <artifact type="OVF" value="MyCustomerImage.ovf" date="2008-09- 29T02:49:45"/>
+                    <artifact type="VMDK" value="MyCustomerImage-disk1.vmdk" date="2008- 09-29T02:49:45"/>
+                    <artifact type="VMDK" value="MyCustomerImage-disk2.vmdk" date="2008- 09-29T02:49:45"/>
+                </source>
+                <state>FAILED_ADD</state>
+                <deployedTime>2012-05-25T12:59:10.110Z</deployedTime>
+                <machineStatus name="vmwareToolsApiVersion">
+                    <value>8295</value>
+                </machineStatus>
+                <machineStatus name="vmwareToolsVersionStatus">
+                    <value>CURRENT</value>
+                </machineStatus>
+                <machineStatus name="vmwareToolsRunningStatus">
+                    <value>RUNNING</value>
+                </machineStatus>
+                <status>
+                    <action>IMAGE_IMPORT</action>
+                    <requestTime>2012-05-25T23:10:36.000Z</requestTime>
+                    <userName>theUser</userName>
+                    <numberOfSteps>3</numberOfSteps>
+                    <updateTime>2012-05-25T23:11:32.000Z</updateTime>
+                    <step>
+                        <name>WAIT_FOR_OPERATION</name>
+                        <number>3</number>
+                        <percentComplete>50</percentComplete>
+                    </step>
+                <failureReason>Operation timed out.</failureReason>
+                </status>
+            </ServerImageWithState>
+            """.format(image_id=image_id)  # NOQA
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        image = conn.get_server_image(image_id=image_id)
+
+        # Verify
+
+        assert isinstance(image, aeronaut.resource.cloud.image.Image)
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/{org_id}/image/{image_id}" \
+              .format(endpoint=self.endpoint,
+                      org_id=conn.my_account.org_id,
+                      image_id=image_id)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[1] == \
+            call(url)
+
     # ==============
     # list_acl_rules
     # ==============

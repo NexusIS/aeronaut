@@ -144,8 +144,7 @@ class CloudConnection(object):
         Returns:
             :mod:`aeronaut.resource.cloud.acl.CreateAclRuleStatus`
         """
-        if org_id is None:
-            org_id = self.my_account.org_id
+        org_id = self._ensure_org_id(org_id)
 
         params = {
             'type': type,
@@ -197,8 +196,7 @@ class CloudConnection(object):
         Returns:
             :mod:`aeronaut.resource.cloud.network.CreateNetworkStatus
         """
-        if org_id is None:
-            org_id = self.my_account.org_id
+        org_id = self._ensure_org_id(org_id)
 
         params = {
             'org_id': org_id,
@@ -220,8 +218,7 @@ class CloudConnection(object):
         Returns:
             :mod:`aeronaut.resource.cloud.acl.DeleteAclRuleStatus
         """
-        if org_id is None:
-            org_id = self.my_account.org_id
+        org_id = self._ensure_org_id(org_id)
 
         params = {
             'org_id': org_id,
@@ -240,8 +237,7 @@ class CloudConnection(object):
         Returns:
             bool
         """
-        if org_id is None:
-            org_id = self.my_account.org_id
+        org_id = self._ensure_org_id(org_id)
 
         params = {
             'org_id': org_id,
@@ -254,6 +250,23 @@ class CloudConnection(object):
         exists = self._deserialize('image.ImageNameExists', response.body)
 
         return exists.is_true
+
+    def get_server_image(self, image_id, org_id=None):
+        """Returns a full description of the indicated server image
+
+        Returns:
+            :mod:`aeronaut.resource.cloud.image.Image`
+        """
+        params = {
+            'org_id': self._ensure_org_id(org_id),
+            'image_id': image_id
+        }
+
+        response = self.request('get_server_image', params=params)
+        self._raise_if_unauthorized(response)
+        image = self._deserialize('image.ServerImage', response.body)
+
+        return image
 
     def list_acl_rules(self, network_id, org_id=None):
         """Returns a list of ACL rules
@@ -332,8 +345,7 @@ class CloudConnection(object):
                 from the ``location`` attribute of a
                 :mod:`aeronaut.resource.cloud.data_center.DataCenter` instance.
         """
-        if org_id is None:
-            org_id = self.my_account.org_id
+        org_id = self._ensure_org_id(org_id)
 
         params = {'org_id': org_id}
 
@@ -410,6 +422,12 @@ class CloudConnection(object):
         mod = __import__(modname, fromlist=[classname])
         klass = getattr(mod, classname)
         return klass(xml=xml)
+
+    def _ensure_org_id(self, org_id):
+        if org_id:
+            return org_id
+        else:
+            return self.my_account.org_id
 
     def _raise_if_unauthorized(self, response):
         if response.status_code == 401:
