@@ -1,0 +1,1048 @@
+from mock import call, MagicMock, Mock, patch
+import pytest
+import uuid
+
+from aeronaut.cloud import connect, UnauthorizedError
+from aeronaut.request.cloud.v0_9.get_my_account import GetMyAccount
+import aeronaut.resource
+
+
+class TestCloudConnection:
+
+    # =======
+    # HELPERS
+    # =======
+
+    @property
+    def endpoint(self):
+        return 'api-na.dimensiondata.com'
+
+    def mock_backend_authentication(self, mock_httplib, mock_open, mock_yaml):
+        """
+        Mocks all the objects involved in authenticating a connection. This
+        also returns the list of mock return values to requests.Session.get so
+        that other tests can add to that if needed.
+        """
+        # We expect the connection object to read the credentials from
+        # ~/.aeronaut if these are not provided in the authenticate method.
+        # This block mocks that file.
+        mock_open.return_value = MagicMock(spec=file)
+        mock_yaml.load.return_value = {
+            self.endpoint: {
+                'username': 'someuser',
+                'password': 'somepassword'
+            }
+        }
+
+        # Mock the response the the authentication request
+        mock_get = mock_httplib.Session.return_value.get
+        mock_auth_response = Mock()
+        mock_auth_response.status_code = 200
+        mock_auth_response.headers = {'content-type': 'text/xml'}
+        mock_auth_response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <ns2:Account xmlns:ns2="http://oec.api.opsource.net/schemas/directory">
+            <ns2:userName>user1</ns2:userName>
+            <ns2:fullName>Test</ns2:fullName>
+            <ns2:firstName>User</ns2:firstName>
+            <ns2:lastName>Uno</ns2:lastName>
+            <ns2:emailAddress>user.uno@nowhere.com</ns2:emailAddress>
+            <ns2:department>Engineering</ns2:department>
+            <ns2:customDefined1>DevOps</ns2:customDefined1>
+            <ns2:customDefined2/>
+            <ns2:orgId>1234</ns2:orgId>
+            <ns2:roles>
+                <ns2:role>
+                    <ns2:name>server</ns2:name>
+                </ns2:role>
+                <ns2:role>
+                    <ns2:name>create image</ns2:name>
+                </ns2:role>
+                <ns2:role>
+                    <ns2:name>storage</ns2:name>
+                </ns2:role>
+                <ns2:role>
+                    <ns2:name>backup</ns2:name>
+                </ns2:role>
+            </ns2:roles>
+        </ns2:Account>
+        """
+        mock_get_side_effect = [mock_auth_response]
+        mock_get.side_effect = mock_get_side_effect
+        return mock_get_side_effect
+
+    # ============
+    # authenticate
+    # ============
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_authenticate(self, mock_httplib, mock_open, mock_yaml):
+        self.mock_backend_authentication(mock_httplib, mock_open, mock_yaml)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+
+        # Verify
+
+        assert conn.is_authenticated
+
+        # Verify that it made the correct request to the server
+        mock_get = mock_httplib.Session.return_value.get
+        req = GetMyAccount(base_url='https://{}'.format(self.endpoint))
+        url = req.url()
+        usr = mock_yaml.load.return_value[self.endpoint]['username']
+        pwd = mock_yaml.load.return_value[self.endpoint]['password']
+        assert mock_get.call_args_list == [call(url, auth=(usr, pwd))]
+
+    # ===============
+    # create_acl_rule
+    # ===============
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_create_acl_rule(self, mock_httplib, mock_open, mock_yaml):
+        self.mock_backend_authentication(mock_httplib, mock_open, mock_yaml)
+
+        # Mock the response to create_network
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ns4:AclRule xmlns="http://oec.api.opsource.net/schemas/server"
+                         xmlns:ns4="http://oec.api.opsource.net/schemas/network">
+                <ns4:id>3271ca31-4ea1-4fc5-b7d8-3d11dcf3d1f2</ns4:id>
+                <ns4:name>acl-test</ns4:name>
+                <ns4:status>NORMAL</ns4:status>
+                <ns4:position>150</ns4:position>
+                <ns4:action>PERMIT</ns4:action>
+                <ns4:protocol>TCP</ns4:protocol>
+                <ns4:sourceIpRange>
+                    <ns4:ipAddress>192.168.3.0</ns4:ipAddress>
+                    <ns4:netmask>255.255.255.0</ns4:netmask>
+                </ns4:sourceIpRange>
+                <ns4:destinationIpRange>
+                    <ns4:ipAddress>192.168.3.0</ns4:ipAddress>
+                    <ns4:netmask>255.255.255.0</ns4:netmask>
+                </ns4:destinationIpRange>
+                <ns4:portRange>
+                    <ns4:type>RANGE</ns4:type>
+                    <ns4:port1>1</ns4:port1>
+                    <ns4:port2>100</ns4:port2>
+                </ns4:portRange>
+                <ns4:type>OUTSIDE_ACL</ns4:type>
+            </ns4:AclRule>
+            """  # NOQA
+        mock_httplib.Session.return_value.post.return_value = response
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        network_id = '12345'
+        acl_name = 'acl-test'
+        position = 150
+        action = 'PERMIT'
+        protocol = 'TCP'
+        source_ip = '192.168.3.0'
+        source_netmask = '255.255.255.0'
+        dest_ip = '192.168.3.0'
+        dest_netmask = '255.255.255.0'
+        from_port = 1
+        to_port = 100
+        acl_type = 'OUTSIDE_ACL'
+        status = conn.create_acl_rule(network_id=network_id,
+                                      name=acl_name,
+                                      position=position,
+                                      action=action,
+                                      protocol=protocol,
+                                      source_ip=source_ip,
+                                      source_netmask=source_netmask,
+                                      dest_ip=dest_ip,
+                                      dest_netmask=dest_netmask,
+                                      from_port=from_port,
+                                      to_port=to_port,
+                                      type=acl_type)
+
+        # Verify
+        assert status.is_success
+
+        # Check that it called the underlying REST API correctly
+
+        url = "https://{endpoint}/oec/0.9/{org_id}/network/" \
+              "{network_id}/aclrule".format(endpoint=self.endpoint,
+                                            org_id=conn.my_account.org_id,
+                                            network_id=network_id)
+
+        template = """
+            <AclRule xmlns="http://oec.api.opsource.net/schemas/network">
+                <name>{name}</name>
+                <position>{position}</position>
+                <action>{action}</action>
+                <protocol>{protocol}</protocol>
+
+                <sourceIpRange>
+                    <ipAddress>{source_ip}</ipAddress>
+                    <netmask>{source_netmask}</netmask>
+                </sourceIpRange>
+
+                <destinationIpRange>
+                    <ipAddress>{dest_ip}</ipAddress>
+                    <netmask>{dest_netmask}</netmask>
+                </destinationIpRange>
+
+                <portRange>
+                    <type>RANGE</type>
+                    <port1>{from_port}</port1>
+                    <port2>{to_port}</port2>
+                </portRange>
+
+                <type>{acl_type}</type>
+            </AclRule>"""  # NOQA
+
+        body = template.format(name=acl_name,
+                               position=position,
+                               action=action,
+                               protocol=protocol,
+                               source_ip=source_ip,
+                               source_netmask=source_netmask,
+                               dest_ip=dest_ip,
+                               dest_netmask=dest_netmask,
+                               from_port=from_port,
+                               to_port=to_port,
+                               acl_type=acl_type)
+
+        assert mock_httplib.Session.return_value.post.call_args_list[0] == \
+            call(url, data=body)
+
+    # ==============
+    # create_network
+    # ==============
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_create_network(self, mock_httplib, mock_open, mock_yaml):
+        self.mock_backend_authentication(mock_httplib, mock_open, mock_yaml)
+
+        # Mock the response to create_network
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ns6:Status xmlns:ns6="http://oec.api.opsource.net/schemas/general">
+                <ns6:operation>Add Network</ns6:operation>
+                <ns6:result>SUCCESS</ns6:result>
+                <ns6:resultDetail>Network created successfully (Network ID: 4bc16e80-506f-11e3-b29c-001517c4643e)</ns6:resultDetail>
+                <ns6:resultCode>REASON_0</ns6:resultCode>
+            </ns6:Status>
+            """  # NOQA
+        mock_httplib.Session.return_value.post.return_value = response
+
+        # Exercise
+
+        network_name = "aeronaut-test-{}".format(uuid.uuid4())
+        conn = connect(endpoint=self.endpoint)
+        location = "NA3"
+        desc = "Test network created by Aeronaut, a Python client library " \
+            "for the DiData Cloud and CloudFiles API. This network is safe " \
+            "to delete."
+        result = conn.create_network(location=location,
+                                     name=network_name,
+                                     description=desc)
+
+        # Verify
+
+        assert result.is_success
+
+        # Check that it called the underlying REST API correctly
+
+        url = 'https://{endpoint}/oec/0.9/{org_id}/networkWithLocation' \
+              .format(endpoint=self.endpoint, org_id=conn.my_account.org_id)
+        body_template = """
+        <NewNetworkWithLocation xmlns="http://oec.api.opsource.net/schemas/network">
+            <name>{name}</name>
+            <description>{description}</description>
+            <location>{location}</location>
+        </NewNetworkWithLocation>
+        """  # NOQA
+        body = body_template.format(
+            location=location, name=network_name, description=desc)
+
+        assert mock_httplib.Session.return_value.post.call_args_list[0] == \
+            call(url, data=body)
+
+    # ===============
+    # delete_acl_rule
+    # ===============
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_delete_acl_rule(self, mock_httplib, mock_open, mock_yaml):
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # mock the response to get_my_account
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ns6:Status xmlns:ns6="http://oec.api.opsource.net/schemas/organization">
+                <ns6:operation>Delete Acl Rule</ns6:operation>
+                <ns6:result>SUCCESS</ns6:result>
+                <ns6:resultDetail>ACL Rule deleted</ns6:resultDetail>
+                <ns6:resultCode>REASON_0</ns6:resultCode>
+            </ns6:Status>
+        """  # NOQA
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        network_id = '1234'
+        rule_id = '5678'
+        status = conn.delete_acl_rule(network_id=network_id,
+                                      rule_id=rule_id)
+
+        # Verify
+
+        assert status.is_success
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/{org_id}/network/" \
+              "{network_id}/aclrule/{rule_id}?delete".format(
+                  endpoint=self.endpoint,
+                  org_id=conn.my_account.org_id,
+                  network_id=network_id,
+                  rule_id=rule_id)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[1] == \
+            call(url)
+
+    # =====================
+    # does_image_name_exist
+    # =====================
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_does_image_name_exists__true(
+            self, mock_httplib, mock_open, mock_yaml):
+        self.mock_backend_authentication(mock_httplib, mock_open, mock_yaml)
+
+        # Mock the response to does_image_name_exist
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """
+            <Exists xmlns="http://oec.api.opsource.net/schemas/general">true</Exists>
+            """  # NOQA
+        mock_httplib.Session.return_value.post.return_value = response
+
+        image_name = "Whatever"
+        location = "NA5"
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        result = conn.does_image_name_exist(image_name, location=location)
+
+        # Verify
+
+        assert result is True
+
+        # Check that it called the underlying REST API correctly
+
+        url = 'https://{endpoint}/oec/0.9/{org_id}/image/nameExists' \
+              .format(endpoint=self.endpoint, org_id=conn.my_account.org_id)
+        body_template = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ImageNameExists xmlns="http://oec.api.opsource.net/schemas/server">
+                <location>{location}</location>
+                <imageName>{image_name}</imageName>
+            </ImageNameExists>
+        """  # NOQA
+        body = body_template.format(
+            location=location, image_name=image_name)
+
+        assert mock_httplib.Session.return_value.post.call_args_list[0] == \
+            call(url, data=body)
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_does_image_name_exists__false(
+            self, mock_httplib, mock_open, mock_yaml):
+        self.mock_backend_authentication(mock_httplib, mock_open, mock_yaml)
+
+        # Mock the response to does_image_name_exist
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """
+            <Exists xmlns="http://oec.api.opsource.net/schemas/general">false</Exists>
+            """  # NOQA
+        mock_httplib.Session.return_value.post.return_value = response
+
+        image_name = "Whatever"
+        location = "NA5"
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        result = conn.does_image_name_exist(image_name, location=location)
+
+        # Verify
+
+        assert result is False
+
+        # Check that it called the underlying REST API correctly
+
+        url = 'https://{endpoint}/oec/0.9/{org_id}/image/nameExists' \
+              .format(endpoint=self.endpoint, org_id=conn.my_account.org_id)
+        body_template = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ImageNameExists xmlns="http://oec.api.opsource.net/schemas/server">
+                <location>{location}</location>
+                <imageName>{image_name}</imageName>
+            </ImageNameExists>
+        """  # NOQA
+        body = body_template.format(
+            location=location, image_name=image_name)
+
+        assert mock_httplib.Session.return_value.post.call_args_list[0] == \
+            call(url, data=body)
+
+    # ==============
+    # get_my_account
+    # ==============
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_get_my_account(self, mock_httplib, mock_open, mock_yaml):
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # mock the response to get_my_account
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """
+            <Account>
+                <fullName>Test</fullName>
+            </Account>
+        """
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        account = conn.my_account
+
+        # Verify
+
+        assert isinstance(account, aeronaut.resource.cloud.account.Account)
+        assert account.full_name == 'Test'
+
+    # ==============
+    # list_acl_rules
+    # ==============
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_acl_rules(self, mock_httplib, mock_open, mock_yaml):
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ns4:AclRuleList xmlns:ns16="http://oec.api.opsource.net/schemas/support" xmlns="http://oec.api.opsource.net/schemas/server" xmlns:ns14="http://oec.api.opsource.net/schemas/manualimport" xmlns:ns15="http://oec.api.opsource.net/schemas/reset" xmlns:ns9="http://oec.api.opsource.net/schemas/admin" xmlns:ns5="http://oec.api.opsource.net/schemas/vip" xmlns:ns12="http://oec.api.opsource.net/schemas/datacenter" xmlns:ns13="http://oec.api.opsource.net/schemas/storage" xmlns:ns6="http://oec.api.opsource.net/schemas/general" xmlns:ns7="http://oec.api.opsource.net/schemas/backup" xmlns:ns10="http://oec.api.opsource.net/schemas/serverbootstrap" xmlns:ns8="http://oec.api.opsource.net/schemas/multigeo" xmlns:ns11="http://oec.api.opsource.net/schemas/whitelabel" xmlns:ns2="http://oec.api.opsource.net/schemas/directory" xmlns:ns4="http://oec.api.opsource.net/schemas/network" xmlns:ns3="http://oec.api.opsource.net/schemas/organization">
+                <ns4:name>ALL_ACL</ns4:name>
+                <ns4:AclRule>
+                    <ns4:id>978d17e7-6b08-4035-aeda-b588837724eb</ns4:id>
+                    <ns4:name>default-98</ns4:name>
+                    <ns4:status>NORMAL</ns4:status>
+                    <ns4:position>98</ns4:position>
+                    <ns4:action>DENY</ns4:action>
+                    <ns4:protocol>TCP</ns4:protocol>
+                    <ns4:sourceIpRange>
+                        <ns4:ipAddress>192.168.10.0</ns4:ipAddress>
+                        <ns4:netmask>255.255.255.0</ns4:netmask>
+                    </ns4:sourceIpRange>
+                    <ns4:destinationIpRange>
+                        <ns4:ipAddress>192.168.20.0</ns4:ipAddress>
+                        <ns4:netmask>255.255.255.0</ns4:netmask>
+                    </ns4:destinationIpRange>
+                    <ns4:portRange>
+                        <ns4:type>EQUAL_TO</ns4:type>
+                        <ns4:port1>587</ns4:port1>
+                    </ns4:portRange>
+                    <ns4:type>INSIDE_ACL</ns4:type>
+                </ns4:AclRule>
+                <ns4:AclRule>
+                    <ns4:id>46f4e08d-572b-476b-a0e6-004d909d4f12</ns4:id>
+                    <ns4:name>default-99</ns4:name>
+                    <ns4:status>NORMAL</ns4:status>
+                    <ns4:position>99</ns4:position>
+                    <ns4:action>DENY</ns4:action>
+                    <ns4:protocol>TCP</ns4:protocol>
+                    <ns4:sourceIpRange/>
+                    <ns4:destinationIpRange/>
+                    <ns4:portRange>
+                        <ns4:type>EQUAL_TO</ns4:type>
+                        <ns4:port1>25</ns4:port1>
+                    </ns4:portRange>
+                    <ns4:type>INSIDE_ACL</ns4:type>
+                </ns4:AclRule>
+            </ns4:AclRuleList>
+            """  # NOQA
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        network_id = '4bc16e80-506f-11e3-b29c-001517c4643e'
+        rules = conn.list_acl_rules(network_id)
+
+        # Verify
+
+        assert isinstance(rules, aeronaut.resource.cloud.acl.AclRuleList)
+
+        for rule in rules:
+            assert isinstance(rule, aeronaut.resource.cloud.acl.AclRule)
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/{org_id}/network/{network_id}" \
+              "/aclrule".format(endpoint=self.endpoint,
+                                org_id=conn.my_account.org_id,
+                                network_id=network_id)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[1] == \
+            call(url)
+
+    # =================
+    # list_data_centers
+    # =================
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_data_centers(self, mock_httplib, mock_open, mock_yaml):
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <DatacentersWithMaintenanceStatus>
+                <datacenter default="false" location="NA3">
+                    <displayName>US - West</displayName>
+                </datacenter>
+                <datacenter default="false" location="NA1">
+                    <displayName>US - East</displayName>
+                </datacenter>
+            </DatacentersWithMaintenanceStatus>
+        """
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        dcs = conn.list_data_centers()
+
+        # Verify
+
+        assert isinstance(
+            dcs, aeronaut.resource.cloud.data_center.DataCenterList)
+        assert len(dcs) > 0
+
+        dc = dcs[0]
+
+        for dc in dcs:
+            assert isinstance(
+                dc, aeronaut.resource.cloud.data_center.DataCenter)
+
+        assert dcs[0].display_name == 'US - West'
+
+    # =============
+    # list_networks
+    # =============
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_networks(self, mock_httplib, mock_open, mock_yaml):
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # mock the response to list_networks
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <ns4:NetworkWithLocations xmlns:ns4="http://oec.api.opsource.net/schemas/network">
+            <ns4:network>
+                <ns4:id>a4ffbcbc-670e-11e3-b29c-001517c4643e</ns4:id>
+                <ns4:name>Collab - Contact</ns4:name>
+                <ns4:description>the description</ns4:description>
+                <ns4:location>NA5</ns4:location>
+                <ns4:privateNet>10.193.122.0</ns4:privateNet>
+                <ns4:multicast>false</ns4:multicast>
+            </ns4:network>
+            <ns4:network>
+                <ns4:id>da20c3a2-0f28-11e3-b29c-001517c4643e</ns4:id>
+                <ns4:name>DevOps</ns4:name>
+                <ns4:location>NA5</ns4:location>
+                <ns4:privateNet>10.192.34.0</ns4:privateNet>
+                <ns4:multicast>false</ns4:multicast>
+            </ns4:network>
+            <ns4:network>
+                <ns4:id>4bb558f2-506f-11e3-b29c-001517c4643e</ns4:id>
+                <ns4:name>Reporting - Practice</ns4:name>
+                <ns4:description>Reporting Server(s) &amp; DB for Nexus practice BI</ns4:description>
+                <ns4:location>NA5</ns4:location>
+                <ns4:privateNet>10.192.158.0</ns4:privateNet>
+                <ns4:multicast>false</ns4:multicast>
+            </ns4:network>
+        </ns4:NetworkWithLocations>
+        """  # NOQA
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        nets = conn.list_networks()
+
+        # Verify
+
+        for net in nets:
+            assert net.is_multicast is False
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_networks__auth_expired(
+            self, mock_httplib, mock_open, mock_yaml):
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # Mock the response to the request below
+        response = Mock()
+        response.status_code = 401
+        response.headers = {'Content-type': 'text/html;charset=utf-8'}
+        response.content = """<html></html>
+            """  # NOQA
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        with pytest.raises(UnauthorizedError):
+            conn.list_networks()
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_networks__with_filter(
+            self, mock_httplib, mock_open, mock_yaml):
+        # Mocked responses to HTTP get
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # Mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <DatacentersWithMaintenanceStatus>
+                <datacenter default="true" location="NA3">
+                    <displayName>US - West</displayName>
+                </datacenter>
+            </DatacentersWithMaintenanceStatus>
+        """  # NOQA
+        get_responses.append(response)
+
+        # Mock the response to list_networks
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <ns4:NetworkWithLocations xmlns:ns4="http://oec.api.opsource.net/schemas/network">
+            <ns4:network>
+                <ns4:id>a4ffbcbc-670e-11e3-b29c-001517c4643e</ns4:id>
+                <ns4:name>Collab - Contact</ns4:name>
+                <ns4:description>the description</ns4:description>
+                <ns4:location>NA5</ns4:location>
+                <ns4:privateNet>10.193.122.0</ns4:privateNet>
+                <ns4:multicast>false</ns4:multicast>
+            </ns4:network>
+            <ns4:network>
+                <ns4:id>da20c3a2-0f28-11e3-b29c-001517c4643e</ns4:id>
+                <ns4:name>DevOps</ns4:name>
+                <ns4:location>NA5</ns4:location>
+                <ns4:privateNet>10.192.34.0</ns4:privateNet>
+                <ns4:multicast>false</ns4:multicast>
+            </ns4:network>
+            <ns4:network>
+                <ns4:id>4bb558f2-506f-11e3-b29c-001517c4643e</ns4:id>
+                <ns4:name>Reporting - Practice</ns4:name>
+                <ns4:description>Reporting Server(s) &amp; DB for Nexus practice BI</ns4:description>
+                <ns4:location>NA5</ns4:location>
+                <ns4:privateNet>10.192.158.0</ns4:privateNet>
+                <ns4:multicast>false</ns4:multicast>
+            </ns4:network>
+        </ns4:NetworkWithLocations>
+        """  # NOQA
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        dcs = [dc for dc in conn.list_data_centers() if dc.is_default]
+        dc = dcs[0]
+        nets = conn.list_networks(location=dc.location)
+
+        # Verify
+
+        assert isinstance(nets, aeronaut.resource.cloud.network.NetworkList)
+
+        for net in nets:
+            assert isinstance(net, aeronaut.resource.cloud.network.Network)
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/{org_id}/networkWithLocation/" \
+              "{location}".format(endpoint=self.endpoint,
+                                  org_id=conn.my_account.org_id,
+                                  location=dc.location)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[2] == \
+            call(url)
+
+    # ================
+    # list_base_images
+    # ================
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_base_images(
+            self, mock_httplib, mock_open, mock_yaml):
+        # Mocked responses to HTTP get
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # Mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ImagesWithDiskSpeed pageNumber="1" pageCount="147" totalCount="147" pageSize="250">
+                <image id="c379cf72-d724-11e2-b29c-001517c4643e" location="NA1">
+                    <name>RedHat 6 64-bit 1 CPU</name>
+                    <description>RedHat 6.4 Enterprise (Santiago) 64-bit</description>
+                    <operatingSystem id="REDHAT664" displayName="REDHAT6/64" type="UNIX"/>
+                    <cpuCount>1</cpuCount>
+                    <memoryMb>2048</memoryMb>
+                    <disk id="3de679b2-d762-11e2-b29c-001517c4643e" scsiId="0" sizeGb="10" speed="STANDARD" state="NORMAL"/>
+                    <source type="BASE"/>
+                    <created>2013-06-17T08:06:07.000Z</created>
+                    <state>NORMAL</state>
+                </image>
+                <image id="26abd500-d729-11e2-b29c-001517c4643e" location="NA1">
+                    <name>RedHat 6 64-bit 2 CPU</name>
+                    <description>RedHat 6.4 Enterprise (Santiago) 64-bit</description>
+                    <operatingSystem id="REDHAT664" displayName="REDHAT6/64" type="UNIX"/>
+                    <cpuCount>2</cpuCount>
+                    <memoryMb>4096</memoryMb>
+                    <disk id="436948b0-d762-11e2-b29c-001517c4643e" scsiId="0" sizeGb="10" speed="STANDARD" state="NORMAL"/>
+                    <source type="BASE"/>
+                    <created>2013-06-17T08:37:31.000Z</created>
+                    <state>NORMAL</state>
+                </image>
+                <image id="9831859e-d729-11e2-b29c-001517c4643e" location="NA1">
+                    <name>RedHat 6 32-bit 1 CPU</name>
+                    <description>RedHat 6.4 Enterprise (Santiago) 32-bit</description>
+                    <operatingSystem id="REDHAT632" displayName="REDHAT6/32" type="UNIX"/>
+                    <cpuCount>1</cpuCount>
+                    <memoryMb>2048</memoryMb>
+                    <disk id="436e8122-d762-11e2-b29c-001517c4643e" scsiId="0" sizeGb="10" speed="STANDARD" state="NORMAL"/>
+                    <source type="BASE"/>
+                    <created>2013-06-17T08:40:42.000Z</created>
+                    <state>NORMAL</state>
+                </image>
+            </ImagesWithDiskSpeed>
+            """  # NOQA
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        images = conn.list_base_images()
+
+        # Verify
+
+        assert isinstance(images, aeronaut.resource.cloud.image.ImageList)
+        assert len(images) == 3
+
+        for image in images:
+            assert isinstance(image, aeronaut.resource.cloud.image.Image)
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/base/imageWithDiskSpeed?" \
+              .format(endpoint=self.endpoint)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[1] == \
+            call(url)
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_base_images__paging(
+            self, mock_httplib, mock_open, mock_yaml):
+        # Mocked responses to HTTP get
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # Mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ImagesWithDiskSpeed pageNumber="5" pageCount="2" totalCount="147" pageSize="2">
+                <image id="c379cf72-d724-11e2-b29c-001517c4643e" location="NA1">
+                    <name>RedHat 6 64-bit 1 CPU</name>
+                    <description>RedHat 6.4 Enterprise (Santiago) 64-bit</description>
+                    <operatingSystem id="REDHAT664" displayName="REDHAT6/64" type="UNIX"/>
+                    <cpuCount>1</cpuCount>
+                    <memoryMb>2048</memoryMb>
+                    <disk id="3de679b2-d762-11e2-b29c-001517c4643e" scsiId="0" sizeGb="10" speed="STANDARD" state="NORMAL"/>
+                    <source type="BASE"/>
+                    <created>2013-06-17T08:06:07.000Z</created>
+                    <state>NORMAL</state>
+                </image>
+                <image id="26abd500-d729-11e2-b29c-001517c4643e" location="NA1">
+                    <name>RedHat 6 64-bit 2 CPU</name>
+                    <description>RedHat 6.4 Enterprise (Santiago) 64-bit</description>
+                    <operatingSystem id="REDHAT664" displayName="REDHAT6/64" type="UNIX"/>
+                    <cpuCount>2</cpuCount>
+                    <memoryMb>4096</memoryMb>
+                    <disk id="436948b0-d762-11e2-b29c-001517c4643e" scsiId="0" sizeGb="10" speed="STANDARD" state="NORMAL"/>
+                    <source type="BASE"/>
+                    <created>2013-06-17T08:37:31.000Z</created>
+                    <state>NORMAL</state>
+                </image>
+            </ImagesWithDiskSpeed>
+            """  # NOQA
+        get_responses.append(response)
+
+        page_size = 2
+        page_number = 5
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        images = conn.list_base_images(page_size=page_size,
+                                       page_number=page_number)
+
+        # Verify
+
+        assert len(images) == 2
+        assert images.page_number == 5
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/base/imageWithDiskSpeed?" \
+              "pageNumber={page_number}&pageSize={page_size}"  \
+              .format(endpoint=self.endpoint,
+                      page_size=page_size,
+                      page_number=page_number)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[1] == \
+            call(url)
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_base_images__filter_by_id(
+            self, mock_httplib, mock_open, mock_yaml):
+        # Mocked responses to HTTP get
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # Mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ImagesWithDiskSpeed pageNumber="5" pageCount="2" totalCount="147" pageSize="2">
+                <image id="c379cf72-d724-11e2-b29c-001517c4643e" location="NA1">
+                    <name>RedHat 6 64-bit 1 CPU</name>
+                    <description>RedHat 6.4 Enterprise (Santiago) 64-bit</description>
+                    <operatingSystem id="REDHAT664" displayName="REDHAT6/64" type="UNIX"/>
+                    <cpuCount>1</cpuCount>
+                    <memoryMb>2048</memoryMb>
+                    <disk id="3de679b2-d762-11e2-b29c-001517c4643e" scsiId="0" sizeGb="10" speed="STANDARD" state="NORMAL"/>
+                    <source type="BASE"/>
+                    <created>2013-06-17T08:06:07.000Z</created>
+                    <state>NORMAL</state>
+                </image>
+            </ImagesWithDiskSpeed>
+            """  # NOQA
+        get_responses.append(response)
+
+        image_id = "c379cf72-d724-11e2-b29c-001517c4643e"
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        images = conn.list_base_images(image_id=image_id)
+
+        # Verify
+
+        assert len(images) == 1
+        assert images[0].id == image_id
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/base/imageWithDiskSpeed?" \
+              "id={image_id}".format(endpoint=self.endpoint,
+                                     image_id=image_id)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[1] == \
+            call(url)
+
+    # ====================
+    # list_customer_images
+    # ====================
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_customer_images(
+            self, mock_httplib, mock_open, mock_yaml):
+        # Mocked responses to HTTP get
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # Mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ImagesWithDiskSpeed pageNumber="1" pageCount="2" totalCount="2" pageSize="250">
+                <image id="482f12e4-d789-4173-9411-0b74677d7cfa" location="NA5">
+                    <name>Image1</name>
+                    <description></description>
+                    <operatingSystem id="UBUNTU1264" displayName="UBUNTU12/64" type="UNIX"/>
+                    <cpuCount>2</cpuCount>
+                    <memoryMb>4096</memoryMb>
+                    <disk id="16cfe4e9-17ee-4b8e-aa9b-e62d6f92e771" scsiId="0" sizeGb="10" speed="STANDARD" state="NORMAL"/>
+                    <source type="CLONE">
+                        <artifact type="SERVER_ID" value="b2395c7e-9a85-445d-8025-29ae6f982b8a"/>
+                    </source>
+                    <created>2014-07-30T00:42:45.000Z</created>
+                    <state>NORMAL</state>
+                </image>
+                <image id="86d3256e-3112-4039-93ca-e44c1e806890" location="NA5">
+                    <name>Image2</name>
+                    <description></description>
+                    <operatingSystem id="CENTOS664" displayName="CENTOS6/64" type="UNIX"/>
+                    <cpuCount>1</cpuCount>
+                    <memoryMb>2048</memoryMb>
+                    <disk id="8e9159b6-6fc7-4d1f-a384-82b07af140a0" scsiId="0" sizeGb="10" speed="STANDARD" state="NORMAL"/>
+                    <source type="CLONE">
+                        <artifact type="SERVER_ID" value="0854be41-125d-4e70-b055-6a7f6d9600dd"/>
+                    </source>
+                    <created>2014-07-30T00:42:55.000Z</created>
+                    <state>NORMAL</state>
+                </image>
+            </ImagesWithDiskSpeed>
+            """  # NOQA
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        images = conn.list_customer_images()
+
+        # Verify
+
+        assert isinstance(images, aeronaut.resource.cloud.image.ImageList)
+        assert len(images) == 2
+
+        for image in images:
+            assert isinstance(image, aeronaut.resource.cloud.image.Image)
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/{org_id}/imageWithDiskSpeed?" \
+              .format(endpoint=self.endpoint,
+                      org_id=conn.my_account.org_id)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[1] == \
+            call(url)
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_customer_images__paging(
+            self, mock_httplib, mock_open, mock_yaml):
+        # Mocked responses to HTTP get
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # Mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ImagesWithDiskSpeed pageNumber="5" pageCount="2" totalCount="147" pageSize="2">
+                <image id="c379cf72-d724-11e2-b29c-001517c4643e" location="NA1">
+                    <name>RedHat 6 64-bit 1 CPU</name>
+                    <description>RedHat 6.4 Enterprise (Santiago) 64-bit</description>
+                    <operatingSystem id="REDHAT664" displayName="REDHAT6/64" type="UNIX"/>
+                    <cpuCount>1</cpuCount>
+                    <memoryMb>2048</memoryMb>
+                    <disk id="3de679b2-d762-11e2-b29c-001517c4643e" scsiId="0" sizeGb="10" speed="STANDARD" state="NORMAL"/>
+                    <source type="BASE"/>
+                    <created>2013-06-17T08:06:07.000Z</created>
+                    <state>NORMAL</state>
+                </image>
+                <image id="26abd500-d729-11e2-b29c-001517c4643e" location="NA1">
+                    <name>RedHat 6 64-bit 2 CPU</name>
+                    <description>RedHat 6.4 Enterprise (Santiago) 64-bit</description>
+                    <operatingSystem id="REDHAT664" displayName="REDHAT6/64" type="UNIX"/>
+                    <cpuCount>2</cpuCount>
+                    <memoryMb>4096</memoryMb>
+                    <disk id="436948b0-d762-11e2-b29c-001517c4643e" scsiId="0" sizeGb="10" speed="STANDARD" state="NORMAL"/>
+                    <source type="BASE"/>
+                    <created>2013-06-17T08:37:31.000Z</created>
+                    <state>NORMAL</state>
+                </image>
+            </ImagesWithDiskSpeed>
+            """  # NOQA
+        get_responses.append(response)
+
+        page_size = 2
+        page_number = 5
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        images = conn.list_customer_images(page_size=page_size,
+                                           page_number=page_number)
+
+        # Verify
+
+        assert len(images) == 2
+        assert images.page_number == 5
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/{org_id}/imageWithDiskSpeed?" \
+              "pageNumber={page_number}&pageSize={page_size}"  \
+              .format(endpoint=self.endpoint,
+                      org_id=conn.my_account.org_id,
+                      page_size=page_size,
+                      page_number=page_number)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[1] == \
+            call(url)

@@ -1,0 +1,11 @@
+.DS_Store
+.testrepository
+*.pyc
+.coverage
+htmlcov/
+.tox/
+MANIFEST
+*.egg-info/
+coverage.xml
+tests/support/saves
+tmp/

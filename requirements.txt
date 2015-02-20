@@ -1,0 +1,4 @@
+PyYAML==3.11
+requests==2.5.1
+tox==1.7.0
+lxml==3.4.2
