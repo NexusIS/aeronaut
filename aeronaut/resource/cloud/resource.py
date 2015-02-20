@@ -24,9 +24,10 @@ class MissingRootElementDeclarationError(Exception):
 
 class RootElementNotFoundError(Exception):
 
-    def __init__(self, xpath, xml):
+    def __init__(self, tags, xml):
         xmlstr = etree.tostring(xml)
-        message = "Unable to find element '{}' in {}".format(xpath, xmlstr)
+        message = "Unable to find element '{}' in {}" \
+                  .format(', '.join(tags), xmlstr)
         super(RootElementNotFoundError, self).__init__(message)
 
 
@@ -56,8 +57,13 @@ class Resource(object):
             if not hasattr(self, '_root_'):
                 raise MissingRootElementDeclarationError(self)
 
-            if xml.tag.split('}')[-1] != self._root_():
-                raise RootElementNotFoundError(self._root_(), xml)
+            root_tags = self._root_()
+
+            if not isinstance(root_tags, list):
+                root_tags = [root_tags]
+
+            if xml.tag.split('}')[-1] not in root_tags:
+                raise RootElementNotFoundError(root_tags, xml)
 
             root = xml
 
@@ -228,8 +234,13 @@ class ResourceList(object):
             if not hasattr(self, '_root_'):
                 raise MissingRootElementDeclarationError(self)
 
-            if xml.tag.split('}')[-1] != self._root_():
-                raise RootElementNotFoundError(self._root_(), xml)
+            root_tags = self._root_()
+
+            if not isinstance(root_tags, list):
+                root_tags = [root_tags]
+
+            if xml.tag.split('}')[-1] not in root_tags:
+                raise RootElementNotFoundError(root_tags, xml)
 
             self.__root_node = xml
 
