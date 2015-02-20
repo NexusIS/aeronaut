@@ -94,6 +94,8 @@ class Resource(object):
                     # string 'false') so we have to treat boolean fields
                     # differently
                     value = value in ['True', True, 'true']
+                elif klass == "auto":
+                    value = self.__autocast(value)
                 else:
                     value = klass(value)
 
