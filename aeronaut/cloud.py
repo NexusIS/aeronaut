@@ -22,6 +22,13 @@ class AuthenticationError(Exception):
         self.response = response
 
 
+class NotAuthenticatedError(Exception):
+
+    def __init__(self, response):
+        message = 'The operation requires authentication beforehand'
+        super(AuthenticationError, self).__init__(message)
+
+
 class UnauthorizedError(Exception):
 
     def __init__(self):
@@ -427,6 +434,9 @@ class CloudConnection(object):
         if org_id:
             return org_id
         else:
+            if not self.my_account:
+                raise NotAuthenticatedError()
+
             return self.my_account.org_id
 
     def _raise_if_unauthorized(self, response):
