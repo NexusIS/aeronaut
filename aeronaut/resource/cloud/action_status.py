@@ -1,7 +1,7 @@
 from aeronaut.resource.cloud.resource import Resource, ResourceList
 
 
-class Status(Resource):
+class ActionStatus(Resource):
 
     def _root_(self):
         return "status"
@@ -19,7 +19,7 @@ class Status(Resource):
 
             "steps": {
                 "xpath": ".",
-                "type": StatusStepsList},
+                "type": ActionStatusStepsList},
 
             "update_time": {
                 "xpath": "./*[local-name()='updateTime']"},
@@ -29,7 +29,7 @@ class Status(Resource):
         }
 
 
-class StatusStep(Resource):
+class ActionStatusStep(Resource):
 
     def _root_(self):
         return "step"
@@ -49,7 +49,7 @@ class StatusStep(Resource):
         }
 
 
-class StatusStepsList(ResourceList):
+class ActionStatusStepsList(ResourceList):
 
     def _root_(self):
         return "status"
@@ -57,5 +57,5 @@ class StatusStepsList(ResourceList):
     def _items_(self):
         return {
             "xpath": "./*[local-name()='step']",
-            "type": StatusStep
+            "type": ActionStatusStep
         }

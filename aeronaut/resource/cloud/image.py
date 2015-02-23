@@ -3,7 +3,7 @@ from aeronaut.resource.cloud.machine_status import MachineStatusList
 from aeronaut.resource.cloud.os import OperatingSystem
 from aeronaut.resource.cloud.resource import Resource, ResourceList
 from aeronaut.resource.cloud.software_label import SoftwareLabelList
-from aeronaut.resource.cloud.status import Status
+from aeronaut.resource.cloud.action_status import ActionStatus
 
 
 class Image(Resource):
@@ -182,7 +182,7 @@ class ServerImage(Image):
 
             "status": {
                 "xpath": "./*[local-name()='status']",
-                "type": Status}
+                "type": ActionStatus}
         }
 
         # NOTE: The order of dictionaries below is important

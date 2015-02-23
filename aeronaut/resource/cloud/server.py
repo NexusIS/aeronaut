@@ -1,9 +1,9 @@
+from aeronaut.resource.cloud.action_status import ActionStatus
 from aeronaut.resource.cloud.disk import DiskList
 from aeronaut.resource.cloud.machine_status import MachineStatusList
 from aeronaut.resource.cloud.os import OperatingSystem
-from aeronaut.resource.cloud.resource import Resource, ResourceList
+from aeronaut.resource.cloud.resource import Resource, ResourceList, Status
 from aeronaut.resource.cloud.software_label import SoftwareLabelList
-from aeronaut.resource.cloud.status import Status
 
 
 class Backup(Resource):
@@ -22,6 +22,14 @@ class Backup(Resource):
             "state": {
                 "xpath": "./@*[local-name()='state']"}
         }
+
+
+class CleanFailedServerDeploymentStatus(Status):
+    pass
+
+
+class DeployServerStatus(Status):
+    pass
 
 
 class Server(Resource):
@@ -102,7 +110,7 @@ class Server(Resource):
 
             "status": {
                 "xpath": "./*[local-name()='status']",
-                "type": Status}
+                "type": ActionStatus}
         }
 
 

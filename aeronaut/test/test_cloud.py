@@ -365,6 +365,82 @@ class TestCloudConnection:
         assert mock_httplib.Session.return_value.get.call_args_list[1] == \
             call(url)
 
+    # =============
+    # deploy_server
+    # =============
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_deploy_server(
+            self, mock_httplib, mock_open, mock_yaml):
+        # Mocked responses to HTTP get
+        self.mock_backend_authentication(mock_httplib,
+                                         mock_open,
+                                         mock_yaml)
+
+        # Mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ns6:Status xmlns:ns6="http://oec.api.opsource.net/schemas/organization">
+                <ns6:operation>Deploy Server</ns6:operation>
+                <ns6:result>SUCCESS</ns6:result>
+                <ns6:resultDetail>Request "Deploy Server with Disk Speeds" successful</ns6:resultDetail>
+                <ns6:resultCode>REASON_0</ns6:resultCode>
+                <additionalInformation name="serverId">
+                    <value>4b126b80-26f0-11e4-8e2e-552ad09887dc</value>
+                </additionalInformation>
+            </ns6:Status>
+        """  # NOQA
+        mock_httplib.Session.return_value.post.return_value = response
+
+        image_id = '789'
+        network_id = '101112'
+        name = 'new server'
+        description = 'my new server'
+        image_id = image_id
+        start = True
+        admin_password = '123qwe456'
+        network_id = network_id
+        disks = [
+            {'scsi_id': '0', 'speed': 'fast'},
+            {'scsi_id': '1', 'speed': 'faster'},
+            {'scsi_id': '2', 'speed': 'fasterer'},
+        ]
+
+        conn = connect(endpoint=self.endpoint)
+        status = conn.deploy_server(name=name,
+                                    description=description,
+                                    image_id=image_id,
+                                    start=start,
+                                    admin_password=admin_password,
+                                    network_id=network_id,
+                                    disks=disks)
+
+        assert status.is_success is True
+
+        # Check that it called the underlying REST API correctly
+
+        url = 'https://{endpoint}/oec/0.9/{org_id}/deployServer' \
+              .format(endpoint=self.endpoint, org_id=conn.my_account.org_id)
+
+        body = """
+            <DeployServer xmlns="http://oec.api.opsource.net/schemas/server">
+                <name>new server</name>
+                <description>my new server</description>
+                <imageId>789</imageId>
+                <start>false</start>
+                <administratorPassword>123qwe456</administratorPassword>
+                <networkId>101112</networkId>
+                <disk scsiId="0" speed="fast"/>
+                <disk scsiId="1" speed="faster"/>
+                <disk scsiId="2" speed="fasterer"/>
+            </DeployServer>"""  # NOQA
+
+        assert mock_httplib.Session.return_value.post.call_args_list[0] == \
+            call(url, data=body)
+
     # =====================
     # does_image_name_exist
     # =====================

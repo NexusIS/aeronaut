@@ -302,6 +302,33 @@ class ResourceList(object):
 # STATUS CLASS
 # ============
 
+class StatusAdditionalInfo(Resource):
+
+    def _root_(self):
+        return "additionalInformation"
+
+    def _members_(self):
+        return {
+            "name": {
+                "xpath": "./@*[local-name()='name']"},
+
+            "value": {
+                "xpath": "./*[local-name()='value']"},
+        }
+
+
+class StatusAdditionalInfoList(ResourceList):
+
+    def _root_(self):
+        return 'Status'
+
+    def _items_(self):
+        return {
+            "xpath": "./*[local-name()='additionalInformation']",
+            "type": StatusAdditionalInfo
+        }
+
+
 class Status(Resource):
 
     def _root_(self):
@@ -309,6 +336,10 @@ class Status(Resource):
 
     def _members_(self):
         return {
+            "additional_info": {
+                "xpath": ".",
+                "type": StatusAdditionalInfoList},
+
             "operation": {
                 "xpath": "./*[local-name()='operation']"},
 

@@ -29,6 +29,17 @@ class NotAuthenticatedError(Exception):
         super(AuthenticationError, self).__init__(message)
 
 
+class OperationForbiddenError(Exception):
+
+    def __init__(self, status):
+        message = "The server responded with a 403: Forbidden error. " \
+                  "{code}: {details}".format(code=status.result_code,
+                                             details=status.result_detail)
+        super(OperationForbiddenError, self).__init__(message)
+
+        self.status = status
+
+
 class UnauthorizedError(Exception):
 
     def __init__(self):
@@ -147,6 +158,9 @@ class CloudConnection(object):
 
         Args:
             server_id (str): The id of the server you wish to remove
+
+        Returns:
+            :mod:`aeronaut.resource.cloud.acl.CleanFailedServerDeploymentStatus`
         """
         params = {
             'org_id': self._ensure_org_id(org_id),
@@ -156,7 +170,8 @@ class CloudConnection(object):
         response = self.request('clean_failed_server_deployment',
                                 params=params)
         self._raise_if_unauthorized(response)
-        return self._deserialize('resource.Status', response.body)
+        return self._deserialize('server.CleanFailedServerDeploymentStatus',
+                                 response.body)
 
     def create_acl_rule(self, network_id, name, position, action, protocol,
                         type, source_ip=None, source_netmask=None,
@@ -253,6 +268,21 @@ class CloudConnection(object):
         self._raise_if_unauthorized(response)
 
         return self._deserialize('acl.DeleteAclRuleStatus', response.body)
+
+    def deploy_server(self, name, image_id, org_id=None, **kwargs):
+        """Deploys a new server from an existing customer or base image
+
+        Returns:
+            :mod:`aeronaut.resource.cloud.server.DeployServerStatus`
+        """
+        kwargs['org_id'] = self._ensure_org_id(org_id)
+        kwargs['name'] = name
+        kwargs['image_id'] = image_id
+
+        response = self.request('deploy_server', params=kwargs)
+        self._raise_if_unauthorized(response)
+
+        return self._deserialize('server.DeployServerStatus', response.body)
 
     def does_image_name_exist(self, image_name, location, org_id=None):
         """Returns True if the given image name exists in the data center
@@ -452,14 +482,25 @@ class CloudConnection(object):
                   .format(api_version=api_version,
                           req_name=req_name)
 
-        mod = __import__(modname, fromlist=[classname])
+        try:
+            mod = __import__(modname, fromlist=[classname])
+        except ImportError:
+            raise ImportError("no module named {}.{}"
+                              .format(modname, classname))
+
         klass = getattr(mod, classname)
         return klass(base_url=self.base_url, params=params)
 
     def _deserialize(self, classname, xml):
         modname, classname = classname.split('.')
         modname = 'aeronaut.resource.cloud.{}'.format(modname)
-        mod = __import__(modname, fromlist=[classname])
+
+        try:
+            mod = __import__(modname, fromlist=[classname])
+        except ImportError:
+            raise ImportError("Cannot import module named {}.{}"
+                              .format(modname, classname))
+
         klass = getattr(mod, classname)
         return klass(xml=xml)
 
@@ -475,6 +516,9 @@ class CloudConnection(object):
     def _raise_if_unauthorized(self, response):
         if response.status_code == 401:
             raise UnauthorizedError()
+        elif response.status_code == 403:
+            status = self._deserialize('resource.Status', response.body)
+            raise OperationForbiddenError(status)
 
 
 def connect(endpoint):
