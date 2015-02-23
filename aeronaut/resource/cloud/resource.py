@@ -97,7 +97,10 @@ class Resource(object):
                 elif klass == "auto":
                     value = self.__autocast(value)
                 else:
-                    value = klass(value)
+                    try:
+                        value = klass(value)
+                    except ValueError:
+                        value = None
 
                 self.__init_property(key, value)
 
@@ -183,7 +186,6 @@ class Resource(object):
         getter = lambda self: self.__get_property(name)
         setter = lambda self, value: self.__set_property(name, value)
         setattr(self.__class__, name, property(getter, setter))
-        setattr(self, '_' + name, None)
 
     def __ensure_members(self):
         attrs = self._members_()
@@ -192,8 +194,12 @@ class Resource(object):
         self.__dirty_properties = []
 
         for key in attrs.keys():
+            # This creates a getter and setter in the class if it doesn't exist
             if not hasattr(self.__class__, key):
                 self.__add_property(key)
+
+            # This creates an attribute in the instance
+            self.__init_property(key, None)
 
     def __freeze(self):
         self.__isfrozen = True

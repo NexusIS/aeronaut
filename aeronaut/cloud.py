@@ -364,6 +364,23 @@ class CloudConnection(object):
 
         return self._deserialize('network.NetworkList', response.body)
 
+    def list_servers(self, org_id=None, **kwargs):
+        """Returns a list of servers
+
+        Args:
+            org_id (str): The ID of the organization whose networks you want
+                listed. If not provided, the ``org_id`` member of the
+                authenticated user's account will be used.
+
+        Returns:
+            :mod:`aeronaut.resourse.cloud.server.ServerList
+        """
+        kwargs['org_id'] = self._ensure_org_id(org_id)
+
+        response = self.request('list_servers', params=kwargs)
+        self._raise_if_unauthorized(response)
+        return self._deserialize('server.ServerList', response.body)
+
     def request(self, req_name, api_version=None, params={}, auth=None):
         """Sends a request to the provider.
 

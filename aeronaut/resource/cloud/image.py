@@ -1,80 +1,9 @@
+from aeronaut.resource.cloud.disk import AdditionalDiskList, DiskList
+from aeronaut.resource.cloud.machine_status import MachineStatusList
+from aeronaut.resource.cloud.os import OperatingSystem
 from aeronaut.resource.cloud.resource import Resource, ResourceList
-
-
-class AdditionalDisk(Resource):
-
-    def _root_(self):
-        return "additionalDisk"
-
-    def _members_(self):
-        return {
-            "id": {
-                "xpath": "./*[local-name()='id']"},
-
-            "scsi_id": {
-                "xpath": "./*[local-name()='scsiId']",
-                "type": int},
-
-            "size_gb": {
-                "xpath": "./*[local-name()='diskSizeGb']",
-                "type": int},
-
-            "state": {
-                "xpath": "./*[local-name()='state']"},
-        }
-
-
-class AdditionalDiskList(ResourceList):
-
-    def _root_(self):
-        return "ServerImageWithState"
-
-    def _items_(self):
-        return {
-            "xpath": "./*[local-name()='additionalDisk']",
-            "type": AdditionalDisk
-        }
-
-
-class Disk(Resource):
-
-    def _root_(self):
-        return "disk"
-
-    def _members_(self):
-        return {
-            "id": {
-                "xpath": "./@*[local-name()='id']"},
-
-            "scsi_id": {
-                "xpath": "./@*[local-name()='scsiId']",
-                "type": int},
-
-            "size_gb": {
-                "xpath": "./@*[local-name()='sizeGb']",
-                "type": int},
-
-            "speed": {
-                "xpath": "./@*[local-name()='speed']"},
-
-            "state": {
-                "xpath": "./@*[local-name()='state']"},
-        }
-
-
-class DiskList(ResourceList):
-
-    def _root_(self):
-        return [
-            "image",
-            "ServerImageWithState"
-        ]
-
-    def _items_(self):
-        return {
-            "xpath": "./*[local-name()='disk']",
-            "type": Disk
-        }
+from aeronaut.resource.cloud.software_label import SoftwareLabelList
+from aeronaut.resource.cloud.status import Status
 
 
 class Image(Resource):
@@ -199,35 +128,7 @@ class ImageSourceArtifactList(ResourceList):
         }
 
 
-class MachineStatus(Resource):
-
-    def _root_(self):
-        return "machineStatus"
-
-    def _members_(self):
-        return {
-            "name": {
-                "xpath": "./@*[local-name()='name']"},
-
-            "value": {
-                "xpath": "./*[local-name()='value']",
-                "type": "auto"}
-        }
-
-
-class MachineStatusList(ResourceList):
-
-    def _root_(self):
-        return "ServerImageWithState"
-
-    def _items_(self):
-        return {
-            "xpath": "./*[local-name()='machineStatus']",
-            "type": MachineStatus
-        }
-
-
-class OperatingSystem(Resource):
+class ServerImageOperatingSystem(Resource):
 
     def _root_(self):
         return "operatingSystem"
@@ -235,13 +136,13 @@ class OperatingSystem(Resource):
     def _members_(self):
         return {
             "id": {
-                "xpath": "./@*[local-name()='id']"},
+                "xpath": "./*[local-name()='id']"},
 
-            "name": {
-                "xpath": "./@*[local-name()='displayName']"},
+            "display_name": {
+                "xpath": "./*[local-name()='displayName']"},
 
             "type": {
-                "xpath": "./@*[local-name()='type']"},
+                "xpath": "./*[local-name()='type']"},
         }
 
 
@@ -281,94 +182,8 @@ class ServerImage(Image):
 
             "status": {
                 "xpath": "./*[local-name()='status']",
-                "type": ServerImageStatus}
+                "type": Status}
         }
 
         # NOTE: The order of dictionaries below is important
         return dict(base.items() + override.items())
-
-
-class ServerImageOperatingSystem(OperatingSystem):
-
-    def _members_(self):
-        return {
-            "name": {
-                "xpath": "./*[local-name()='displayName']"},
-
-            "type": {
-                "xpath": "./*[local-name()='type']"},
-        }
-
-
-class ServerImageStatus(Resource):
-
-    def _root_(self):
-        return "status"
-
-    def _members_(self):
-        return {
-            "action": {
-                "xpath": "./action"},
-
-            "failure_reason": {
-                "xpath": "./failureReason"},
-
-            "request_time": {
-                "xpath": "./requestTime"},
-
-            "steps": {
-                "xpath": ".",
-                "type": ServerImageStatusStepsList},
-
-            "update_time": {
-                "xpath": "./updateTime"},
-
-            "username": {
-                "xpath": "./userName"}
-        }
-
-
-class ServerImageStatusStep(Resource):
-
-    def _root_(self):
-        return "step"
-
-    def _members_(self):
-        return {
-            "name": {
-                "xpath": "./name"},
-
-            "number": {
-                "xpath": "./number",
-                "type": int},
-
-            "percent_complete": {
-                "xpath": "./percentComplete",
-                "type": int}
-        }
-
-
-class ServerImageStatusStepsList(ResourceList):
-
-    def _root_(self):
-        return "status"
-
-    def _items_(self):
-        return {
-            "xpath": "./*[local-name()='step']",
-            "type": ServerImageStatusStep
-        }
-
-
-class SoftwareLabelList(ResourceList):
-
-    def _root_(self):
-        return [
-            "image",
-            "ServerImageWithState"
-        ]
-
-    def _items_(self):
-        return {
-            "xpath": "./*[local-name()='softwareLabel']"
-        }

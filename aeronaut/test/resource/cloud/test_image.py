@@ -41,7 +41,7 @@ class TestImage:
         assert image.name == "Image1"
         assert image.description == "something"
         assert image.os.id == "UBUNTU1264"
-        assert image.os.name == "UBUNTU12/64"
+        assert image.os.display_name == "UBUNTU12/64"
         assert image.os.type == "UNIX"
         assert image.cpu_count == 2
         assert image.memory_mb == 4096
@@ -193,7 +193,7 @@ class TestServerImage:
         assert image.name == "My New Customer Image"
         assert image.description == "Image for producing web servers."
         assert image.os.type == "WINDOWS"
-        assert image.os.name == "WIN2008E/64"
+        assert image.os.display_name == "WIN2008E/64"
         assert image.os_storage_gb == 50
         assert image.cpu_count == 2
         assert image.memory_mb == 4096
