@@ -299,7 +299,7 @@ class ResourceList(object):
 
 
 # ============
-# RESULT CLASS
+# STATUS CLASS
 # ============
 
 class Status(Resource):

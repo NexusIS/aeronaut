@@ -142,6 +142,22 @@ class CloudConnection(object):
         else:
             raise AuthenticationError(response)
 
+    def clean_failed_server_deployment(self, server_id, org_id=None):
+        """Removes a failed server deployment from the list of pending deployed servers
+
+        Args:
+            server_id (str): The id of the server you wish to remove
+        """
+        params = {
+            'org_id': self._ensure_org_id(org_id),
+
+            'server_id': server_id
+        }
+        response = self.request('clean_failed_server_deployment',
+                                params=params)
+        self._raise_if_unauthorized(response)
+        return self._deserialize('resource.Status', response.body)
+
     def create_acl_rule(self, network_id, name, position, action, protocol,
                         type, source_ip=None, source_netmask=None,
                         dest_ip=None, dest_netmask=None, from_port=None,

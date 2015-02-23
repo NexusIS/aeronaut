@@ -96,6 +96,52 @@ class TestCloudConnection:
         pwd = mock_yaml.load.return_value[self.endpoint]['password']
         assert mock_get.call_args_list == [call(url, auth=(usr, pwd))]
 
+    # ==============================
+    # clean_failed_server_deployment
+    # ==============================
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_clean_failed_server_deployment(
+            self, mock_httplib, mock_open, mock_yaml):
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # Mock the response to create_network
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ns6:Status xmlns:ns6="http://oec.api.opsource.net/schemas/organization">
+                <ns6:operation>Clean Server</ns6:operation>
+                <ns6:result>SUCCESS</ns6:result>
+                <ns6:resultDetail>Successfully submitted clean failed server request for server id: {server-id}, private IP address {private-ip- address}</ns6:resultDetail>
+                <ns6:resultCode>REASON_0</ns6:resultCode>
+                </ns6:Status>
+            """  # NOQA
+        get_responses.append(response)
+
+        server_id = "someserveridhere"
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        status = conn.clean_failed_server_deployment(server_id)
+
+        # Verify
+
+        assert isinstance(status, aeronaut.resource.cloud.resource.Status)
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/{org_id}/server/{server_id}?clean" \
+              .format(endpoint=self.endpoint,
+                      org_id=conn.my_account.org_id,
+                      server_id=server_id)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[1] == \
+            call(url)
+
     # ===============
     # create_acl_rule
     # ===============
