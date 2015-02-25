@@ -28,6 +28,10 @@ class CleanFailedServerDeploymentStatus(Status):
     pass
 
 
+class DeleteServerStatus(Status):
+    pass
+
+
 class DeployServerStatus(Status):
     pass
 

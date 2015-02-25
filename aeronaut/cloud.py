@@ -269,6 +269,29 @@ class CloudConnection(object):
 
         return self._deserialize('acl.DeleteAclRuleStatus', response.body)
 
+    def delete_server(self, server_id, org_id=None):
+        """Delete the given server. Note that a Server must be stopped before
+        it can be deleted
+
+        Args:
+            org_id (str): Optional. The ID of the organization whose networks
+                you want listed. If not provided, the ``org_id`` member of the
+                authenticated user's account will be used.
+
+            server_id (str): The ID of the server to delete.
+
+        Returns:
+            :mod:`aeronaut.resourse.cloud.server.DeleteServerStatus`
+        """
+        params = {
+            'org_id': self._ensure_org_id(org_id),
+            'server_id': server_id
+        }
+
+        response = self.request('delete_server', params=params)
+        self._raise_if_unauthorized(response)
+        return self._deserialize('server.DeleteServerStatus', response.body)
+
     def deploy_server(self, name, image_id, org_id=None, **kwargs):
         """Deploys a new server from an existing customer or base image
 
