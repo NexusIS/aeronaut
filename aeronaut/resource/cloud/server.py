@@ -32,6 +32,10 @@ class DeployServerStatus(Status):
     pass
 
 
+class ModifyServerStatus(Status):
+    pass
+
+
 class Server(Resource):
 
     def _root_(self):

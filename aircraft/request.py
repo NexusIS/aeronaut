@@ -38,7 +38,7 @@ class Request(object):
         return self.get_param(name) is not None
 
     def headers(self):
-        return None
+        return {}
 
     def http_method(self):
         return None

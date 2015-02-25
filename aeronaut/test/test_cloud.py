@@ -1,5 +1,6 @@
 from mock import call, MagicMock, Mock, patch
 import pytest
+import urllib
 import uuid
 
 from aeronaut.cloud import connect, UnauthorizedError
@@ -1377,3 +1378,68 @@ class TestCloudConnection:
 
         assert mock_httplib.Session.return_value.get.call_args_list[1] == \
             call(url)
+
+    # =============
+    # modify_server
+    # =============
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_modify_server(
+            self, mock_httplib, mock_open, mock_yaml):
+        # Mocked responses to HTTP get
+        self.mock_backend_authentication(mock_httplib,
+                                         mock_open,
+                                         mock_yaml)
+
+        # Mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ns6:Status xmlns:ns6="http://oec.api.opsource.net/schemas/support">
+                <ns6:operation>Edit Server</ns6:operation>
+                <ns6:result>SUCCESS</ns6:result>
+                <ns6:resultDetail>Server edited</ns6:resultDetail>
+                <ns6:resultCode>REASON_0</ns6:resultCode>
+            </ns6:Status>
+        """  # NOQA
+        mock_httplib.Session.return_value.post.return_value = response
+
+        server_id = "98b972ce-cc18-49a0-97c2-d87315e08bb1"
+        name = "newname"
+        description = "new description"
+        cpu_count = 2
+        memory = 2048
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        status = conn.modify_server(server_id=server_id,
+                                    name=name,
+                                    description=description,
+                                    cpu_count=cpu_count,
+                                    memory=memory)
+
+        # Verify
+
+        assert status.is_success
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/{org_id}/server/{server_id}" \
+              .format(endpoint=self.endpoint,
+                      org_id=conn.my_account.org_id,
+                      server_id=server_id)
+
+        headers = {
+            'Content-type': 'application/x-www-form-urlencoded'
+        }
+
+        payload = {}
+        for param in ['description', 'memory', 'name']:
+            payload[param] = eval(param)
+        payload['cpuCount'] = eval('cpu_count')
+        body = urllib.urlencode(payload)
+
+        assert mock_httplib.Session.return_value.post.call_args_list[0] == \
+            call(url, data=body, headers=headers)

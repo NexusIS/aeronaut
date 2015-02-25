@@ -427,6 +427,43 @@ class CloudConnection(object):
         self._raise_if_unauthorized(response)
         return self._deserialize('server.ServerList', response.body)
 
+    def modify_server(self, server_id, name=None, description=None,
+                      cpu_count=None, memory=None, org_id=None):
+        """Changes the name, description, CPU, or RAM profile of an existing
+        deployed server.
+
+        Args:
+            org_id (str): Optional. The ID of the organization whose networks
+                you want listed. If not provided, the ``org_id`` member of the
+                authenticated user's account will be used.
+
+            name (str): Optional. New name of the server.
+
+            description (str): Optional. New description of the server.
+
+            cpu_count (int): Optional. New number of virtual CPUs.
+
+            memory (int): Optional. New total memory in MB. Value must be a
+                multiple of 1024.
+
+            server_id (str): The ID of the server to modify.
+
+        Returns:
+            :mod:`aeronaut.resourse.cloud.server.ModifyServerStatus`
+        """
+        params = {
+            'org_id': self._ensure_org_id(org_id),
+            'server_id': server_id
+        }
+
+        for var in ['name', 'description', 'cpu_count', 'memory']:
+            if eval(var):
+                params[var] = eval(var)
+
+        response = self.request('modify_server', params=params)
+        self._raise_if_unauthorized(response)
+        return self._deserialize('server.ModifyServerStatus', response.body)
+
     def request(self, req_name, api_version=None, params={}, auth=None):
         """Sends a request to the provider.
 
@@ -454,6 +491,9 @@ class CloudConnection(object):
         if request.http_method() in ['post', 'put'] \
                 and request.body() is not None:
             kwargs['data'] = request.body()
+
+        if request.headers():
+            kwargs['headers'] = request.headers()
 
         http_method = getattr(self._http_session, request.http_method())
         return Response(http_method(request.url(), **kwargs), request)
