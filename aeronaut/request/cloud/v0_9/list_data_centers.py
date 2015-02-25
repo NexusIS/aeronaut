@@ -3,6 +3,9 @@ from aeronaut.request.cloud.v0_9.request import Request
 
 class ListDataCenters(Request):
 
+    def with_paging(self):
+        return True
+
     def params(self):
         return {
             'org_id': {

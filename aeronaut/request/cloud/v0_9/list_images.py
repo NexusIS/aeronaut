@@ -3,6 +3,9 @@ from aeronaut.request.cloud.v0_9.request import Request
 
 class ListImages(Request):
 
+    def with_paging(self):
+        return True
+
     def params(self):
         return {
             'base_or_org_id': {
@@ -25,16 +28,6 @@ class ListImages(Request):
             },
 
             'name': {
-                'required': False,
-                'default': None
-            },
-
-            'page_number': {
-                'required': False,
-                'default': None
-            },
-
-            'page_size': {
                 'required': False,
                 'default': None
             },
@@ -63,12 +56,6 @@ class ListImages(Request):
 
         query_str = []
 
-        if self.has_param('page_number'):
-            query_str.append('pageNumber={page_number}')
-
-        if self.has_param('page_size'):
-            query_str.append('pageSize={page_size}')
-
         if self.has_param('image_id'):
             query_str.append('id={image_id}')
 
@@ -96,8 +83,6 @@ class ListImages(Request):
         return t.format(base_url=self.base_url,
                         base_or_org_id=self.get_param('base_or_org_id'),
                         image_id=self.get_param('image_id'),
-                        page_number=self.get_param('page_number'),
-                        page_size=self.get_param('page_size'),
                         location=self.get_param('location'),
                         name=self.get_param('name'),
                         created=self.get_param('created'),

@@ -7,8 +7,10 @@ class Request(object):
         self._auth_data = auth_data
         self._base_url = base_url
 
-        if hasattr(self, 'params'):
-            self.__params__ = Params(self.params(), params)
+        params_def = self._build_params_def()
+
+        if params_def:
+            self.__params__ = Params(params_def, params)
 
     # =================
     # PUBLIC PROPERTIES
@@ -28,14 +30,38 @@ class Request(object):
     def body(self):
         return None
 
+    def build_url(self):
+        url = self.url()
+
+        if self.with_paging():
+            query = []
+            page_number = self.get_param('page_number')
+            page_size = self.get_param('page_size')
+
+            if page_number:
+                query.append("pageNumber={}".format(page_number))
+
+            if page_size:
+                query.append("pageSize={}".format(page_size))
+
+            if '?' not in url and query:
+                url += "?"
+
+            if query:
+                url += "&".join(query)
+
+        return url
+
     def get_param(self, name):
-        if hasattr(self.__params__, name):
+        if self.has_param(name):
             return getattr(self.__params__, name)
         else:
             return None
 
     def has_param(self, name):
-        return self.get_param(name) is not None
+        return hasattr(self, '__params__') and \
+            hasattr(self.__params__, name) and \
+            getattr(self.__params__, name) is not None
 
     def headers(self):
         return {}
@@ -45,3 +71,25 @@ class Request(object):
 
     def url(self):
         return None
+
+    def with_paging(self):
+        return False
+
+    # ===============
+    # PRIVATE METHODS
+    # ===============
+
+    def _build_params_def(self):
+        if hasattr(self, 'params'):
+            params_def = self.params()
+        else:
+            params_def = {}
+
+        if self.with_paging():
+            for param in ['page_number', 'page_size']:
+                params_def[param] = {
+                    'required': False,
+                    'default': None
+                }
+
+        return params_def

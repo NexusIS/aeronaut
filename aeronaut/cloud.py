@@ -629,7 +629,7 @@ class CloudConnection(object):
             kwargs['headers'] = request.headers()
 
         http_method = getattr(self._http_session, request.http_method())
-        return Response(http_method(request.url(), **kwargs), request)
+        return Response(http_method(request.build_url(), **kwargs), request)
 
     def update_admin_account(self, account):
         """Updates an admin account.
