@@ -464,6 +464,28 @@ class CloudConnection(object):
         self._raise_if_unauthorized(response)
         return self._deserialize('server.ModifyServerStatus', response.body)
 
+    def reboot_server(self, server_id, org_id=None):
+        """Gracefully reboot a server
+
+        Args:
+            org_id (str): Optional. The ID of the organization whose networks
+                you want listed. If not provided, the ``org_id`` member of the
+                authenticated user's account will be used.
+
+            server_id (str): The ID of the server to reboot.
+
+        Returns:
+            :mod:`aeronaut.resourse.cloud.server.RebootServerStatus`
+        """
+        params = {
+            'org_id': self._ensure_org_id(org_id),
+            'server_id': server_id
+        }
+
+        response = self.request('reboot_server', params=params)
+        self._raise_if_unauthorized(response)
+        return self._deserialize('server.RebootServerStatus', response.body)
+
     def shutdown_server(self, server_id, org_id=None):
         """Gracefully stop a server
 

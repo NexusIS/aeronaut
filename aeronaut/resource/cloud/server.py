@@ -36,6 +36,10 @@ class ModifyServerStatus(Status):
     pass
 
 
+class RebootServerStatus(Status):
+    pass
+
+
 class Server(Resource):
 
     def _root_(self):
