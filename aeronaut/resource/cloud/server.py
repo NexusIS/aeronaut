@@ -36,6 +36,10 @@ class ModifyServerStatus(Status):
     pass
 
 
+class PoweroffServerStatus(Status):
+    pass
+
+
 class RebootServerStatus(Status):
     pass
 

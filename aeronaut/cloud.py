@@ -464,6 +464,28 @@ class CloudConnection(object):
         self._raise_if_unauthorized(response)
         return self._deserialize('server.ModifyServerStatus', response.body)
 
+    def poweroff_server(self, server_id, org_id=None):
+        """Forcefully power off the server
+
+        Args:
+            org_id (str): Optional. The ID of the organization whose networks
+                you want listed. If not provided, the ``org_id`` member of the
+                authenticated user's account will be used.
+
+            server_id (str): The ID of the server to power off.
+
+        Returns:
+            :mod:`aeronaut.resourse.cloud.server.PoweroffServerStatus`
+        """
+        params = {
+            'org_id': self._ensure_org_id(org_id),
+            'server_id': server_id
+        }
+
+        response = self.request('poweroff_server', params=params)
+        self._raise_if_unauthorized(response)
+        return self._deserialize('server.PoweroffServerStatus', response.body)
+
     def reboot_server(self, server_id, org_id=None):
         """Gracefully reboot a server
 

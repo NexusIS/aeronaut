@@ -1444,6 +1444,52 @@ class TestCloudConnection:
         assert mock_httplib.Session.return_value.post.call_args_list[0] == \
             call(url, data=body, headers=headers)
 
+    # ===============
+    # poweroff_server
+    # ===============
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_poweroff_server(
+            self, mock_httplib, mock_open, mock_yaml):
+        # Mocked responses to HTTP get
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # Mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ns6:Status xmlns:ns6="http://oec.api.opsource.net/schemas/organization">
+                <ns6:operation>Power Off Server</ns6:operation>
+                <ns6:result>SUCCESS</ns6:result>
+                <ns6:resultDetail>Server "Power Off" issued</ns6:resultDetail>
+                <ns6:resultCode>REASON_0</ns6:resultCode>
+            </ns6:Status>"""  # NOQA
+        get_responses.append(response)
+
+        server_id = "98b972ce-cc18-49a0-97c2-d87315e08bb1"
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        status = conn.poweroff_server(server_id=server_id)
+
+        # Verify
+
+        assert status.is_success
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/{org_id}/server/{server_id}" \
+              "?poweroff".format(endpoint=self.endpoint,
+                                 org_id=conn.my_account.org_id,
+                                 server_id=server_id)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[1] == \
+            call(url)
+
     # =============
     # reboot_server
     # =============
