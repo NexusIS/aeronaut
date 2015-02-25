@@ -508,6 +508,28 @@ class CloudConnection(object):
         self._raise_if_unauthorized(response)
         return self._deserialize('server.RebootServerStatus', response.body)
 
+    def reset_server(self, server_id, org_id=None):
+        """Forcefully power cycle the server.
+
+        Args:
+            org_id (str): Optional. The ID of the organization whose networks
+                you want listed. If not provided, the ``org_id`` member of the
+                authenticated user's account will be used.
+
+            server_id (str): The ID of the server to reset.
+
+        Returns:
+            :mod:`aeronaut.resourse.cloud.server.ResetServerStatus`
+        """
+        params = {
+            'org_id': self._ensure_org_id(org_id),
+            'server_id': server_id
+        }
+
+        response = self.request('reset_server', params=params)
+        self._raise_if_unauthorized(response)
+        return self._deserialize('server.ResetServerStatus', response.body)
+
     def shutdown_server(self, server_id, org_id=None):
         """Gracefully stop a server
 
