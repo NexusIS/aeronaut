@@ -1,25 +1,7 @@
-from aeronaut.request.cloud.v0_9.request import Request
+from aeronaut.request.cloud.v0_9.server_action import ServerActionRequest
 
 
-class StartServer(Request):
-
-    def params(self):
-        return {
-            'server_id': {
-                'required': True
-            },
-
-            'org_id': {
-                'required': True
-            }
-        }
-
-    def http_method(self):
-        return 'get'
+class StartServer(ServerActionRequest):
 
     def url(self):
-        template = "{base_url}/{org_id}/server/{server_id}?start"
-
-        return template.format(base_url=self.base_url,
-                               org_id=self.get_param('org_id'),
-                               server_id=self.get_param('server_id'))
+        return super(StartServer, self).url('start')
