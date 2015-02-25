@@ -128,3 +128,7 @@ class ServerList(ResourceList):
             "xpath": "./*[local-name()='server']",
             "type": Server
         }
+
+
+class ShutdownServerStatus(Status):
+    pass

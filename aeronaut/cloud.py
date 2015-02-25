@@ -464,6 +464,28 @@ class CloudConnection(object):
         self._raise_if_unauthorized(response)
         return self._deserialize('server.ModifyServerStatus', response.body)
 
+    def shutdown_server(self, server_id, org_id=None):
+        """Gracefully stop a server
+
+        Args:
+            org_id (str): Optional. The ID of the organization whose networks
+                you want listed. If not provided, the ``org_id`` member of the
+                authenticated user's account will be used.
+
+            server_id (str): The ID of the server to shutdown.
+
+        Returns:
+            :mod:`aeronaut.resourse.cloud.server.ShutdownServerStatus`
+        """
+        params = {
+            'org_id': self._ensure_org_id(org_id),
+            'server_id': server_id
+        }
+
+        response = self.request('shutdown_server', params=params)
+        self._raise_if_unauthorized(response)
+        return self._deserialize('server.ShutdownServerStatus', response.body)
+
     def request(self, req_name, api_version=None, params={}, auth=None):
         """Sends a request to the provider.
 
