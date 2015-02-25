@@ -132,3 +132,7 @@ class ServerList(ResourceList):
 
 class ShutdownServerStatus(Status):
     pass
+
+
+class StartServerStatus(Status):
+    pass

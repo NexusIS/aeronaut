@@ -486,6 +486,28 @@ class CloudConnection(object):
         self._raise_if_unauthorized(response)
         return self._deserialize('server.ShutdownServerStatus', response.body)
 
+    def start_server(self, server_id, org_id=None):
+        """Powers on an existing server
+
+        Args:
+            org_id (str): Optional. The ID of the organization whose networks
+                you want listed. If not provided, the ``org_id`` member of the
+                authenticated user's account will be used.
+
+            server_id (str): The ID of the server to start.
+
+        Returns:
+            :mod:`aeronaut.resourse.cloud.server.StartServerStatus`
+        """
+        params = {
+            'org_id': self._ensure_org_id(org_id),
+            'server_id': server_id
+        }
+
+        response = self.request('start_server', params=params)
+        self._raise_if_unauthorized(response)
+        return self._deserialize('server.StartServerStatus', response.body)
+
     def request(self, req_name, api_version=None, params={}, auth=None):
         """Sends a request to the provider.
 
