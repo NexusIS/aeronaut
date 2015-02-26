@@ -363,24 +363,28 @@ class CloudConnection(object):
 
         return self._deserialize('acl.AclRuleList', response.body)
 
-    def list_base_images(self, **kwargs):
+    def list_base_images(self, filters=None, page_size=None, page_number=None):
         """Returns a list of base images
 
         Returns:
             :mod:`aeronaut.resource.cloud.image.ImageList`
         """
-        return self.list_images('base', **kwargs)
+        return self.list_images('base',
+                                filters=filters,
+                                page_size=page_size,
+                                page_number=page_number)
 
-    def list_customer_images(self, org_id=None, **kwargs):
+    def list_customer_images(self, org_id=None, filters=None, page_size=None,
+                             page_number=None):
         """Returns a list of customer images
 
         Returns:
             :mod:`aeronaut.resource.cloud.image.ImageList`
         """
-        if not org_id:
-            org_id = self.my_account.org_id
-
-        return self.list_images(org_id, **kwargs)
+        return self.list_images(self._ensure_org_id(org_id),
+                                filters=filters,
+                                page_size=page_size,
+                                page_number=page_number)
 
     def list_data_centers(self):
         """Returns a list of data centers
@@ -433,7 +437,8 @@ class CloudConnection(object):
 
         return self._deserialize('network.NetworkList', response.body)
 
-    def list_servers(self, org_id=None, **kwargs):
+    def list_servers(self, org_id=None, filters=None, page_size=None,
+                     page_number=None):
         """Returns a list of servers
 
         Args:
@@ -444,9 +449,14 @@ class CloudConnection(object):
         Returns:
             :mod:`aeronaut.resourse.cloud.server.ServerList
         """
-        kwargs['org_id'] = self._ensure_org_id(org_id)
+        params = {
+            'org_id': self._ensure_org_id(org_id),
+            'filters': filters,
+            'page_size': page_size,
+            'page_number': page_number
+        }
 
-        response = self.request('list_servers', params=kwargs)
+        response = self.request('list_servers', params=params)
         self._raise_if_unauthorized(response)
         return self._deserialize('server.ServerList', response.body)
 

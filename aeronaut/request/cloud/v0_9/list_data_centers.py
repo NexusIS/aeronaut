@@ -6,6 +6,13 @@ class ListDataCenters(Request):
     def with_paging(self):
         return True
 
+    def fields(self):
+        return {
+            'location': {
+                'filter': True
+            }
+        }
+
     def params(self):
         return {
             'org_id': {

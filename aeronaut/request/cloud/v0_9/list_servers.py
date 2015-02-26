@@ -6,6 +6,46 @@ class ListServers(Request):
     def with_paging(self):
         return True
 
+    def fields(self):
+        return {
+            'created': {
+                'filter': True
+            },
+
+            'deployed': {
+                'filter': True
+            },
+
+            'location': {
+                'filter': True
+            },
+
+            'machine_name': {
+                'filter': True
+            },
+
+            'name': {
+                'filter': True
+            },
+
+            'network_id': {
+                'filter': True
+            },
+
+            'private_ip': {
+                'filter': True
+            },
+
+            'server_id': {
+                'filter': True,
+                'query_key': 'id'
+            },
+
+            'source_image_id': {
+                'filter': True
+            }
+        }
+
     def params(self):
         return {
             'org_id': {

@@ -1,6 +1,23 @@
 from aircraft.params import Params
 
 
+# ==========
+# EXCEPTIONS
+# ==========
+
+class UnknownFilterKeyError(Exception):
+
+    def __init__(self, invalid_key, valid_keys):
+        message = "'{invalid_key}' is invalid. Valid filters are " \
+                  "{valid_keys}.".format(invalid_key=invalid_key,
+                                         valid_keys=", ".join(valid_keys))
+        super(UnknownFilterKeyError, self).__init__(message)
+
+
+# ==================
+# BASE REQUEST CLASS
+# ==================
+
 class Request(object):
 
     def __init__(self, auth_data=None, base_url=None, params={}):
@@ -50,6 +67,41 @@ class Request(object):
             if query:
                 url += "&".join(query)
 
+        # We expect filters here to be an array of 3-element arrays
+        # with each element being a string:
+        #       [[<field name>, <operator>, <value>], [<f>,<o>,<v>], ...]
+        filters = self.get_param('filters')
+
+        # However...
+
+        # We can accommodate the scenario where filters is just
+        # a 3-element array:
+        #       [<field name>, <operator>, <value>]
+        #
+        # and this block will just convert that into an array of
+        # 3-element arrays.
+        if isinstance(filters, list) \
+                and len(filters) == 3 \
+                and all([isinstance(e, str) for e in filters]):
+            filters = [filters]
+
+        if filters:
+            query = "&".join([
+                "{key}{operator}{value}".format(
+                    key=self._to_filter_query_key(f[0]),
+                    operator=self._to_operator(f[1].upper()),
+                    value=f[2])
+                for f in filters
+            ])
+
+            if "?" not in url and query:
+                url += "?"
+
+            if query and url[-1] != "?":
+                url += "&" + query
+            else:
+                url += query
+
         return url
 
     def get_param(self, name):
@@ -92,4 +144,33 @@ class Request(object):
                     'default': None
                 }
 
+        if hasattr(self, 'fields'):
+            params_def['filters'] = {
+                'required': False,
+                'default': []
+            }
+
         return params_def
+
+    def _to_filter_query_key(self, string):
+        fields = self.fields()
+        valid_keys = [key for key, d
+                      in fields.items()
+                      if 'filter' in d and d['filter']]
+
+        if string not in valid_keys:
+            raise UnknownFilterKeyError(string, valid_keys)
+
+        if 'query_key' in fields[string]:
+            return fields[string]['query_key']
+        elif '_' in string and len(string.split('_')) > 1:
+            parts = string.split('_')
+            return ''.join(parts[0:1] + [s.capitalize() for s in parts[1:]])
+        else:
+            return string
+
+    def _to_operator(self, string):
+        if string.upper() in ["EQ", "EQUALS", "=", "=="]:
+            return "="
+        else:
+            return ".{}=".format(string.upper())
