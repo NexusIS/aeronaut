@@ -1202,6 +1202,48 @@ class TestCloudConnection:
         assert mock_httplib.Session.return_value.get.call_args_list[1] == \
             call(url)
 
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_data_centers__sort(
+            self, mock_httplib, mock_open, mock_yaml):
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <DatacentersWithMaintenanceStatus>
+                <datacenter default="false" location="NA3">
+                    <displayName>US - West</displayName>
+                </datacenter>
+                <datacenter default="false" location="NA1">
+                    <displayName>US - East</displayName>
+                </datacenter>
+            </DatacentersWithMaintenanceStatus>
+        """
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        dcs = conn.list_data_centers(sort=["location ASC"])
+
+        # Verify
+
+        assert isinstance(
+            dcs, aeronaut.resource.cloud.data_center.DataCenterList)
+
+        url = "https://{endpoint}/oec/0.9/{org_id}/" \
+              "datacenterWithMaintenanceStatus?orderBy=location.ASCENDING" \
+              .format(endpoint=self.endpoint,
+                      org_id=conn.my_account.org_id)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[1] == \
+            call(url)
+
     # =============
     # list_networks
     # =============
@@ -1521,6 +1563,55 @@ class TestCloudConnection:
         # Check if the correct HTTP call was made
         url = "https://{endpoint}/oec/0.9/{org_id}/serverWithBackup?" \
               "machineName=something"  \
+              .format(endpoint=self.endpoint,
+                      org_id=conn.my_account.org_id)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[1] == \
+            call(url)
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_servers__sort(
+            self, mock_httplib, mock_open, mock_yaml):
+        # Mocked responses to HTTP get
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # Mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <ServersWithBackup pageNumber="2" pageCount="5" totalCount="5" pageSize="2" xmlns:ns16="http://oec.api.opsource.net/schemas/support" xmlns="http://oec.api.opsource.net/schemas/server" xmlns:ns14="http://oec.api.opsource.net/schemas/manualimport" xmlns:ns15="http://oec.api.opsource.net/schemas/reset" xmlns:ns9="http://oec.api.opsource.net/schemas/admin" xmlns:ns5="http://oec.api.opsource.net/schemas/vip" xmlns:ns12="http://oec.api.opsource.net/schemas/datacenter" xmlns:ns13="http://oec.api.opsource.net/schemas/storage" xmlns:ns6="http://oec.api.opsource.net/schemas/general" xmlns:ns7="http://oec.api.opsource.net/schemas/backup" xmlns:ns10="http://oec.api.opsource.net/schemas/serverbootstrap" xmlns:ns8="http://oec.api.opsource.net/schemas/multigeo" xmlns:ns11="http://oec.api.opsource.net/schemas/whitelabel" xmlns:ns2="http://oec.api.opsource.net/schemas/directory" xmlns:ns4="http://oec.api.opsource.net/schemas/network" xmlns:ns3="http://oec.api.opsource.net/schemas/organization">
+                <server id="63e5a7ab-a3ae-4ce3-82d5-c77685290976" location="NA5">
+                    <name>Tableau Reporting Server</name>
+                    <description>Hosts Tableau Software Reporting Server Engine</description>
+                    <operatingSystem id="WIN2012S64" displayName="WIN2012S/64" type="WINDOWS"/>
+                    <cpuCount>4</cpuCount>
+                </server>
+                <server id="2a80508b-aeec-46e2-a0a1-13d0ceee7eef" location="NA5">
+                    <name>MySQL Reporting Engine</name>
+                    <description>MySQL Database that Holds NITRO Extract for Reporting</description>
+                    <operatingSystem id="UBUNTU1264" displayName="UBUNTU12/64" type="UNIX"/>
+                    <cpuCount>2</cpuCount>
+                    <memoryMb>4096</memoryMb>
+                    <machineStatus name="vmwareToolsVersionStatus">
+                        <value>NEED_UPGRADE</value>
+                    </machineStatus>
+                </server>
+            </ServersWithBackup>
+            """  # NOQA
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        conn.list_servers(sort=["os_id DESC", "server_id ASC"])
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/{org_id}/serverWithBackup?" \
+              "orderBy=operatingSystemId.DESCENDING,id.ASCENDING"  \
               .format(endpoint=self.endpoint,
                       org_id=conn.my_account.org_id)
 

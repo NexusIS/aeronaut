@@ -9,7 +9,8 @@ class ListDataCenters(Request):
     def fields(self):
         return {
             'location': {
-                'filter': True
+                'filter': True,
+                'sort': True
             }
         }
 

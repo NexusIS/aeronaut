@@ -9,34 +9,41 @@ class ListImages(Request):
     def fields(self):
         return {
             'created': {
-                'filter': True
+                'filter': True,
+                'sort': True
             },
 
             'image_id': {
                 'filter': True,
+                'sort': True,
                 'query_key': 'id'
             },
 
             'location': {
-                'filter': True
+                'filter': True,
+                'sort': True
             },
 
             'name': {
-                'filter': True
+                'filter': True,
+                'sort': True
             },
 
             'os_family': {
                 'filter': True,
+                'sort': True,
                 'query_key': 'operatingSystemFamily'
             },
 
             'os_id': {
                 'filter': True,
+                'sort': True,
                 'query_key': 'operatingSystemId'
             },
 
             'state': {
-                'filter': True
+                'filter': True,
+                'sort': True
             }
         }
 

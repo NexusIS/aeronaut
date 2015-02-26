@@ -363,7 +363,8 @@ class CloudConnection(object):
 
         return self._deserialize('acl.AclRuleList', response.body)
 
-    def list_base_images(self, filters=None, page_size=None, page_number=None):
+    def list_base_images(self, filters=None, page_size=None, page_number=None,
+                         sort=None):
         """Returns a list of base images
 
         Returns:
@@ -372,10 +373,11 @@ class CloudConnection(object):
         return self.list_images('base',
                                 filters=filters,
                                 page_size=page_size,
-                                page_number=page_number)
+                                page_number=page_number,
+                                sort=sort)
 
     def list_customer_images(self, org_id=None, filters=None, page_size=None,
-                             page_number=None):
+                             page_number=None, sort=None):
         """Returns a list of customer images
 
         Returns:
@@ -384,10 +386,11 @@ class CloudConnection(object):
         return self.list_images(self._ensure_org_id(org_id),
                                 filters=filters,
                                 page_size=page_size,
-                                page_number=page_number)
+                                page_number=page_number,
+                                sort=sort)
 
     def list_data_centers(self, org_id=None, filters=None, page_size=None,
-                          page_number=None):
+                          page_number=None, sort=None):
         """Returns a list of data centers
 
         Returns:
@@ -397,11 +400,11 @@ class CloudConnection(object):
             'org_id': self._ensure_org_id(org_id),
             'filters': filters,
             'page_size': page_size,
-            'page_number': page_number
+            'page_number': page_number,
+            'sort': sort
         }
         response = self.request('list_data_centers', params=params)
         self._raise_if_unauthorized(response)
-
         return self._deserialize('data_center.DataCenterList', response.body)
 
     def list_images(self, base_or_org_id, **kwargs):
@@ -444,7 +447,7 @@ class CloudConnection(object):
         return self._deserialize('network.NetworkList', response.body)
 
     def list_servers(self, org_id=None, filters=None, page_size=None,
-                     page_number=None):
+                     page_number=None, sort=None):
         """Returns a list of servers
 
         Args:
@@ -459,7 +462,8 @@ class CloudConnection(object):
             'org_id': self._ensure_org_id(org_id),
             'filters': filters,
             'page_size': page_size,
-            'page_number': page_number
+            'page_number': page_number,
+            'sort': sort
         }
 
         response = self.request('list_servers', params=params)

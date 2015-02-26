@@ -14,6 +14,15 @@ class UnknownFilterKeyError(Exception):
         super(UnknownFilterKeyError, self).__init__(message)
 
 
+class UnknownSortKeyError(Exception):
+
+    def __init__(self, invalid_key, valid_keys):
+        message = "'{invalid_key}' is invalid. Valid sort keys are " \
+                  "{valid_keys}.".format(invalid_key=invalid_key,
+                                         valid_keys=", ".join(valid_keys))
+        super(UnknownSortKeyError, self).__init__(message)
+
+
 # ==================
 # BASE REQUEST CLASS
 # ==================
@@ -98,9 +107,27 @@ class Request(object):
                 url += "?"
 
             if query and url[-1] != "?":
-                url += "&" + query
-            else:
-                url += query
+                url += "&"
+
+            url += query
+
+        sorters = self.get_param("sort")
+
+        if sorters:
+            query = ",".join([
+                "{key}.{direction}".format(
+                    key=self._to_sort_query_key(s),
+                    direction=self._to_sort_dir(s))
+                for s in sorters
+            ])
+
+            if "?" not in url and query:
+                url += "?"
+
+            if query and url[-1] != "?":
+                url += "&"
+
+            url += "orderBy=" + query
 
         return url
 
@@ -145,10 +172,26 @@ class Request(object):
                 }
 
         if hasattr(self, 'fields'):
-            params_def['filters'] = {
-                'required': False,
-                'default': []
-            }
+            fields = self.fields()
+            filterable = any([
+                'filter' in v and v['filter']
+                for k, v in fields.items()
+            ])
+            sortable = any([
+                'sort' in v and v['sort']
+                for k, v in fields.items()
+            ])
+
+            if filterable:
+                params_def['filters'] = {
+                    'required': False,
+                    'default': []
+                }
+            if sortable:
+                params_def['sort'] = {
+                    'required': False,
+                    'default': []
+                }
 
         return params_def
 
@@ -161,6 +204,15 @@ class Request(object):
         if string not in valid_keys:
             raise UnknownFilterKeyError(string, valid_keys)
 
+        return self._to_query_key(string, fields)
+
+    def _to_operator(self, string):
+        if string.upper() in ["EQ", "EQUALS", "=", "=="]:
+            return "="
+        else:
+            return ".{}=".format(string.upper())
+
+    def _to_query_key(self, string, fields):
         if 'query_key' in fields[string]:
             return fields[string]['query_key']
         elif '_' in string and len(string.split('_')) > 1:
@@ -169,8 +221,24 @@ class Request(object):
         else:
             return string
 
-    def _to_operator(self, string):
-        if string.upper() in ["EQ", "EQUALS", "=", "=="]:
-            return "="
+    def _to_sort_dir(self, string):
+        parts = string.split(" ")
+
+        if len(parts) < 2:
+            return "ASCENDING"
+        elif parts[1].upper() in ["ASC", "ASCENDING"]:
+            return "ASCENDING"
         else:
-            return ".{}=".format(string.upper())
+            return "DESCENDING"
+
+    def _to_sort_query_key(self, string):
+        string = string.split(" ")[0]
+        fields = self.fields()
+        valid_keys = [key for key, d
+                      in fields.items()
+                      if 'sort' in d and d['sort']]
+
+        if string not in valid_keys:
+            raise UnknownSortKeyError(string, valid_keys)
+
+        return self._to_query_key(string, fields)

@@ -9,15 +9,18 @@ class ListServers(Request):
     def fields(self):
         return {
             'created': {
-                'filter': True
+                'filter': True,
+                'sort': True
             },
 
             'deployed': {
-                'filter': True
+                'filter': True,
+                'sort': True
             },
 
             'location': {
-                'filter': True
+                'filter': True,
+                'sort': True
             },
 
             'machine_name': {
@@ -32,17 +35,32 @@ class ListServers(Request):
                 'filter': True
             },
 
+            'os_id': {
+                'sort': True,
+                'query_key': 'operatingSystemId'
+            },
+
             'private_ip': {
                 'filter': True
             },
 
             'server_id': {
                 'filter': True,
+                'sort': True,
                 'query_key': 'id'
             },
 
             'source_image_id': {
-                'filter': True
+                'filter': True,
+                'sort': True
+            },
+
+            'started': {
+                'sort': True
+            },
+
+            'state': {
+                'sort': True
             }
         }
 
