@@ -779,206 +779,6 @@ class TestCloudConnection:
         assert mock_httplib.Session.return_value.get.call_args_list[1] == \
             call(url)
 
-    # =================
-    # list_data_centers
-    # =================
-
-    @patch('aeronaut.cloud.yaml', autospec=True)
-    @patch('aeronaut.cloud.open', create=True)
-    @patch('aeronaut.cloud.requests', autospec=True)
-    def test_list_data_centers(self, mock_httplib, mock_open, mock_yaml):
-        get_responses = self.mock_backend_authentication(mock_httplib,
-                                                         mock_open,
-                                                         mock_yaml)
-
-        # mock the response to list_data_centers
-        response = Mock()
-        response.headers = {'content-type': 'text/xml'}
-        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-            <DatacentersWithMaintenanceStatus>
-                <datacenter default="false" location="NA3">
-                    <displayName>US - West</displayName>
-                </datacenter>
-                <datacenter default="false" location="NA1">
-                    <displayName>US - East</displayName>
-                </datacenter>
-            </DatacentersWithMaintenanceStatus>
-        """
-        get_responses.append(response)
-
-        # Exercise
-
-        conn = connect(endpoint=self.endpoint)
-        dcs = conn.list_data_centers()
-
-        # Verify
-
-        assert isinstance(
-            dcs, aeronaut.resource.cloud.data_center.DataCenterList)
-        assert len(dcs) > 0
-
-        dc = dcs[0]
-
-        for dc in dcs:
-            assert isinstance(
-                dc, aeronaut.resource.cloud.data_center.DataCenter)
-
-        assert dcs[0].display_name == 'US - West'
-
-    # =============
-    # list_networks
-    # =============
-
-    @patch('aeronaut.cloud.yaml', autospec=True)
-    @patch('aeronaut.cloud.open', create=True)
-    @patch('aeronaut.cloud.requests', autospec=True)
-    def test_list_networks(self, mock_httplib, mock_open, mock_yaml):
-        get_responses = self.mock_backend_authentication(mock_httplib,
-                                                         mock_open,
-                                                         mock_yaml)
-
-        # mock the response to list_networks
-        response = Mock()
-        response.headers = {'content-type': 'text/xml'}
-        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-        <ns4:NetworkWithLocations xmlns:ns4="http://oec.api.opsource.net/schemas/network">
-            <ns4:network>
-                <ns4:id>a4ffbcbc-670e-11e3-b29c-001517c4643e</ns4:id>
-                <ns4:name>Collab - Contact</ns4:name>
-                <ns4:description>the description</ns4:description>
-                <ns4:location>NA5</ns4:location>
-                <ns4:privateNet>10.193.122.0</ns4:privateNet>
-                <ns4:multicast>false</ns4:multicast>
-            </ns4:network>
-            <ns4:network>
-                <ns4:id>da20c3a2-0f28-11e3-b29c-001517c4643e</ns4:id>
-                <ns4:name>DevOps</ns4:name>
-                <ns4:location>NA5</ns4:location>
-                <ns4:privateNet>10.192.34.0</ns4:privateNet>
-                <ns4:multicast>false</ns4:multicast>
-            </ns4:network>
-            <ns4:network>
-                <ns4:id>4bb558f2-506f-11e3-b29c-001517c4643e</ns4:id>
-                <ns4:name>Reporting - Practice</ns4:name>
-                <ns4:description>Reporting Server(s) &amp; DB for Nexus practice BI</ns4:description>
-                <ns4:location>NA5</ns4:location>
-                <ns4:privateNet>10.192.158.0</ns4:privateNet>
-                <ns4:multicast>false</ns4:multicast>
-            </ns4:network>
-        </ns4:NetworkWithLocations>
-        """  # NOQA
-        get_responses.append(response)
-
-        # Exercise
-
-        conn = connect(endpoint=self.endpoint)
-        nets = conn.list_networks()
-
-        # Verify
-
-        for net in nets:
-            assert net.is_multicast is False
-
-    @patch('aeronaut.cloud.yaml', autospec=True)
-    @patch('aeronaut.cloud.open', create=True)
-    @patch('aeronaut.cloud.requests', autospec=True)
-    def test_list_networks__auth_expired(
-            self, mock_httplib, mock_open, mock_yaml):
-        get_responses = self.mock_backend_authentication(mock_httplib,
-                                                         mock_open,
-                                                         mock_yaml)
-
-        # Mock the response to the request below
-        response = Mock()
-        response.status_code = 401
-        response.headers = {'Content-type': 'text/html;charset=utf-8'}
-        response.content = """<html></html>
-            """  # NOQA
-        get_responses.append(response)
-
-        # Exercise
-
-        conn = connect(endpoint=self.endpoint)
-        with pytest.raises(UnauthorizedError):
-            conn.list_networks()
-
-    @patch('aeronaut.cloud.yaml', autospec=True)
-    @patch('aeronaut.cloud.open', create=True)
-    @patch('aeronaut.cloud.requests', autospec=True)
-    def test_list_networks__with_filter(
-            self, mock_httplib, mock_open, mock_yaml):
-        # Mocked responses to HTTP get
-        get_responses = self.mock_backend_authentication(mock_httplib,
-                                                         mock_open,
-                                                         mock_yaml)
-
-        # Mock the response to list_data_centers
-        response = Mock()
-        response.headers = {'content-type': 'text/xml'}
-        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-            <DatacentersWithMaintenanceStatus>
-                <datacenter default="true" location="NA3">
-                    <displayName>US - West</displayName>
-                </datacenter>
-            </DatacentersWithMaintenanceStatus>
-        """  # NOQA
-        get_responses.append(response)
-
-        # Mock the response to list_networks
-        response = Mock()
-        response.headers = {'content-type': 'text/xml'}
-        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-        <ns4:NetworkWithLocations xmlns:ns4="http://oec.api.opsource.net/schemas/network">
-            <ns4:network>
-                <ns4:id>a4ffbcbc-670e-11e3-b29c-001517c4643e</ns4:id>
-                <ns4:name>Collab - Contact</ns4:name>
-                <ns4:description>the description</ns4:description>
-                <ns4:location>NA5</ns4:location>
-                <ns4:privateNet>10.193.122.0</ns4:privateNet>
-                <ns4:multicast>false</ns4:multicast>
-            </ns4:network>
-            <ns4:network>
-                <ns4:id>da20c3a2-0f28-11e3-b29c-001517c4643e</ns4:id>
-                <ns4:name>DevOps</ns4:name>
-                <ns4:location>NA5</ns4:location>
-                <ns4:privateNet>10.192.34.0</ns4:privateNet>
-                <ns4:multicast>false</ns4:multicast>
-            </ns4:network>
-            <ns4:network>
-                <ns4:id>4bb558f2-506f-11e3-b29c-001517c4643e</ns4:id>
-                <ns4:name>Reporting - Practice</ns4:name>
-                <ns4:description>Reporting Server(s) &amp; DB for Nexus practice BI</ns4:description>
-                <ns4:location>NA5</ns4:location>
-                <ns4:privateNet>10.192.158.0</ns4:privateNet>
-                <ns4:multicast>false</ns4:multicast>
-            </ns4:network>
-        </ns4:NetworkWithLocations>
-        """  # NOQA
-        get_responses.append(response)
-
-        # Exercise
-
-        conn = connect(endpoint=self.endpoint)
-        dcs = [dc for dc in conn.list_data_centers() if dc.is_default]
-        dc = dcs[0]
-        nets = conn.list_networks(location=dc.location)
-
-        # Verify
-
-        assert isinstance(nets, aeronaut.resource.cloud.network.NetworkList)
-
-        for net in nets:
-            assert isinstance(net, aeronaut.resource.cloud.network.Network)
-
-        # Check if the correct HTTP call was made
-        url = "https://{endpoint}/oec/0.9/{org_id}/networkWithLocation/" \
-              "{location}".format(endpoint=self.endpoint,
-                                  org_id=conn.my_account.org_id,
-                                  location=dc.location)
-
-        assert mock_httplib.Session.return_value.get.call_args_list[2] == \
-            call(url)
-
     # ================
     # list_base_images
     # ================
@@ -1314,6 +1114,206 @@ class TestCloudConnection:
                       page_number=page_number)
 
         assert mock_httplib.Session.return_value.get.call_args_list[1] == \
+            call(url)
+
+    # =================
+    # list_data_centers
+    # =================
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_data_centers(self, mock_httplib, mock_open, mock_yaml):
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <DatacentersWithMaintenanceStatus>
+                <datacenter default="false" location="NA3">
+                    <displayName>US - West</displayName>
+                </datacenter>
+                <datacenter default="false" location="NA1">
+                    <displayName>US - East</displayName>
+                </datacenter>
+            </DatacentersWithMaintenanceStatus>
+        """
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        dcs = conn.list_data_centers()
+
+        # Verify
+
+        assert isinstance(
+            dcs, aeronaut.resource.cloud.data_center.DataCenterList)
+        assert len(dcs) > 0
+
+        dc = dcs[0]
+
+        for dc in dcs:
+            assert isinstance(
+                dc, aeronaut.resource.cloud.data_center.DataCenter)
+
+        assert dcs[0].display_name == 'US - West'
+
+    # =============
+    # list_networks
+    # =============
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_networks(self, mock_httplib, mock_open, mock_yaml):
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # mock the response to list_networks
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <ns4:NetworkWithLocations xmlns:ns4="http://oec.api.opsource.net/schemas/network">
+            <ns4:network>
+                <ns4:id>a4ffbcbc-670e-11e3-b29c-001517c4643e</ns4:id>
+                <ns4:name>Collab - Contact</ns4:name>
+                <ns4:description>the description</ns4:description>
+                <ns4:location>NA5</ns4:location>
+                <ns4:privateNet>10.193.122.0</ns4:privateNet>
+                <ns4:multicast>false</ns4:multicast>
+            </ns4:network>
+            <ns4:network>
+                <ns4:id>da20c3a2-0f28-11e3-b29c-001517c4643e</ns4:id>
+                <ns4:name>DevOps</ns4:name>
+                <ns4:location>NA5</ns4:location>
+                <ns4:privateNet>10.192.34.0</ns4:privateNet>
+                <ns4:multicast>false</ns4:multicast>
+            </ns4:network>
+            <ns4:network>
+                <ns4:id>4bb558f2-506f-11e3-b29c-001517c4643e</ns4:id>
+                <ns4:name>Reporting - Practice</ns4:name>
+                <ns4:description>Reporting Server(s) &amp; DB for Nexus practice BI</ns4:description>
+                <ns4:location>NA5</ns4:location>
+                <ns4:privateNet>10.192.158.0</ns4:privateNet>
+                <ns4:multicast>false</ns4:multicast>
+            </ns4:network>
+        </ns4:NetworkWithLocations>
+        """  # NOQA
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        nets = conn.list_networks()
+
+        # Verify
+
+        for net in nets:
+            assert net.is_multicast is False
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_networks__auth_expired(
+            self, mock_httplib, mock_open, mock_yaml):
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # Mock the response to the request below
+        response = Mock()
+        response.status_code = 401
+        response.headers = {'Content-type': 'text/html;charset=utf-8'}
+        response.content = """<html></html>
+            """  # NOQA
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        with pytest.raises(UnauthorizedError):
+            conn.list_networks()
+
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_networks__with_filter(
+            self, mock_httplib, mock_open, mock_yaml):
+        # Mocked responses to HTTP get
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # Mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <DatacentersWithMaintenanceStatus>
+                <datacenter default="true" location="NA3">
+                    <displayName>US - West</displayName>
+                </datacenter>
+            </DatacentersWithMaintenanceStatus>
+        """  # NOQA
+        get_responses.append(response)
+
+        # Mock the response to list_networks
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <ns4:NetworkWithLocations xmlns:ns4="http://oec.api.opsource.net/schemas/network">
+            <ns4:network>
+                <ns4:id>a4ffbcbc-670e-11e3-b29c-001517c4643e</ns4:id>
+                <ns4:name>Collab - Contact</ns4:name>
+                <ns4:description>the description</ns4:description>
+                <ns4:location>NA5</ns4:location>
+                <ns4:privateNet>10.193.122.0</ns4:privateNet>
+                <ns4:multicast>false</ns4:multicast>
+            </ns4:network>
+            <ns4:network>
+                <ns4:id>da20c3a2-0f28-11e3-b29c-001517c4643e</ns4:id>
+                <ns4:name>DevOps</ns4:name>
+                <ns4:location>NA5</ns4:location>
+                <ns4:privateNet>10.192.34.0</ns4:privateNet>
+                <ns4:multicast>false</ns4:multicast>
+            </ns4:network>
+            <ns4:network>
+                <ns4:id>4bb558f2-506f-11e3-b29c-001517c4643e</ns4:id>
+                <ns4:name>Reporting - Practice</ns4:name>
+                <ns4:description>Reporting Server(s) &amp; DB for Nexus practice BI</ns4:description>
+                <ns4:location>NA5</ns4:location>
+                <ns4:privateNet>10.192.158.0</ns4:privateNet>
+                <ns4:multicast>false</ns4:multicast>
+            </ns4:network>
+        </ns4:NetworkWithLocations>
+        """  # NOQA
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        dcs = [dc for dc in conn.list_data_centers() if dc.is_default]
+        dc = dcs[0]
+        nets = conn.list_networks(location=dc.location)
+
+        # Verify
+
+        assert isinstance(nets, aeronaut.resource.cloud.network.NetworkList)
+
+        for net in nets:
+            assert isinstance(net, aeronaut.resource.cloud.network.Network)
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/{org_id}/networkWithLocation/" \
+              "{location}".format(endpoint=self.endpoint,
+                                  org_id=conn.my_account.org_id,
+                                  location=dc.location)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[2] == \
             call(url)
 
     # ============
