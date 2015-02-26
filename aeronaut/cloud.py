@@ -386,14 +386,20 @@ class CloudConnection(object):
                                 page_size=page_size,
                                 page_number=page_number)
 
-    def list_data_centers(self):
+    def list_data_centers(self, org_id=None, filters=None, page_size=None,
+                          page_number=None):
         """Returns a list of data centers
 
         Returns:
             :mod:`aeronaut.resource.cloud.data_center.DataCenterList`
         """
-        org_id = self.my_account.org_id
-        response = self.request('list_data_centers', params={'org_id': org_id})
+        params = {
+            'org_id': self._ensure_org_id(org_id),
+            'filters': filters,
+            'page_size': page_size,
+            'page_number': page_number
+        }
+        response = self.request('list_data_centers', params=params)
         self._raise_if_unauthorized(response)
 
         return self._deserialize('data_center.DataCenterList', response.body)

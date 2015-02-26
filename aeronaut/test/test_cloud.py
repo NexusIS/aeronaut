@@ -1162,6 +1162,46 @@ class TestCloudConnection:
 
         assert dcs[0].display_name == 'US - West'
 
+    @patch('aeronaut.cloud.yaml', autospec=True)
+    @patch('aeronaut.cloud.open', create=True)
+    @patch('aeronaut.cloud.requests', autospec=True)
+    def test_list_data_centers__filter(
+            self, mock_httplib, mock_open, mock_yaml):
+        get_responses = self.mock_backend_authentication(mock_httplib,
+                                                         mock_open,
+                                                         mock_yaml)
+
+        # mock the response to list_data_centers
+        response = Mock()
+        response.headers = {'content-type': 'text/xml'}
+        response.content = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <DatacentersWithMaintenanceStatus>
+                <datacenter default="false" location="NA3">
+                    <displayName>US - West</displayName>
+                </datacenter>
+                <datacenter default="false" location="NA1">
+                    <displayName>US - East</displayName>
+                </datacenter>
+            </DatacentersWithMaintenanceStatus>
+        """
+        get_responses.append(response)
+
+        # Exercise
+
+        conn = connect(endpoint=self.endpoint)
+        conn.list_data_centers(filters=["location", "like", "NA*"])
+
+        # Verify
+
+        # Check if the correct HTTP call was made
+        url = "https://{endpoint}/oec/0.9/{org_id}/" \
+              "datacenterWithMaintenanceStatus?location.LIKE=NA*" \
+              .format(endpoint=self.endpoint,
+                      org_id=conn.my_account.org_id)
+
+        assert mock_httplib.Session.return_value.get.call_args_list[1] == \
+            call(url)
+
     # =============
     # list_networks
     # =============
