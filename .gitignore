@@ -9,3 +9,4 @@ MANIFEST
 coverage.xml
 tests/support/saves
 tmp/
+doc/_build

@@ -58,13 +58,22 @@ class CloudConnection(object):
     def __init__(self, endpoint, api_version='v0.9'):
         """Initializes a DiData CloudConnection object without authenticating.
 
-        Args:
-            endpoint (str): Then endpoing to connect to.
-                For example, 'api-na.dimensiondata.com') Do not prepend
-                'https://' to the endpoint!
+        Parameters:
+            endpoint (:class:`str`): The endpoint to connect to when
+            :meth:`~aeronaut.cloud.CloudConnection.authenticate` is called
+            later.
 
-            api_version (str): The API version to use throughout the connection
-                object's lifetime. Defaults to 'v0.9' when not provided.
+            api_version (:class:`str`): Optional. The API version to use.
+            Defaults to v0.9 when not provided. Note that the default may
+            be updated to a later API version in future releases.
+
+        Most of the methods on this object may raise the following exceptions:
+
+            :class:`aeronaut.cloud.UnauthorizedError`: If the session has
+            expired resulting in the backend returning an HTTP status code 401.
+
+            :class:`aeronaut.cloud.OperationForbiddenError`: If the user does
+            not have permission to perform the action.
         """
         self._endpoint = endpoint
         self._api_version = api_version
@@ -131,6 +140,23 @@ class CloudConnection(object):
 
     def authenticate(self):
         """Authenticates against the endpoint provided during initialization
+
+        Raises:
+            :class:`aeronaut.cloud.AuthenticationError` - if the backend does
+            not return an HTTP status code of 200 or 201.
+
+        To successfully authenticate against the given endpoint, the method
+        will look for a file in the path ``~/.aeronaut`` with a section name
+        matching the same endpoint. The file must be valid YAML with the
+        following structure::
+
+            api-na.dimensiondata.com:
+                username: myuser
+                password: mypassword
+
+            another.endpoint.com:
+                username: myotheruser
+                password: mypasswordtoo!
         """
         kwargs = {}
 
@@ -154,13 +180,20 @@ class CloudConnection(object):
             raise AuthenticationError(response)
 
     def clean_failed_server_deployment(self, server_id, org_id=None):
-        """Removes a failed server deployment from the list of pending deployed servers
+        """Removes a failed server deployment from the list of pending
+        deployed servers
 
-        Args:
-            server_id (str): The id of the server you wish to remove
+        Parameters:
+            server_id (:class:`str`): The id of the server you wish to remove.
+
+            org_id (:class:`str`) Optional. The organization ID that owns the
+            server. Defaults to the current user's
+            :py:attr:`~aeronaut.resource.cloud.account.Account.org_id` if not
+            provided.
 
         Returns:
-            :mod:`aeronaut.resource.cloud.acl.CleanFailedServerDeploymentStatus`
+            An instance of
+            :class:`aeronaut.resource.cloud.server.CleanFailedServerDeploymentStatus`
         """
         params = {
             'org_id': self._ensure_org_id(org_id),
@@ -179,8 +212,44 @@ class CloudConnection(object):
                         to_port=None, org_id=None):
         """Creates an ACL Rule
 
+        Parameters:
+            network_id (:class:`str`): The id of the network where the ACL rule
+            is to be created.
+
+            name (:class:`str`): The name of the ACL rule.
+
+            position (:class:`int`): The position of the ACL rule. Valid range
+            is 100-500 inclusive.
+
+            action (:class:`str`): One of PERMIT or DENY.
+
+            protocol (:class:`str`): One of IP, ICMP, TCP, UDP.
+
+            type (:class:`str`): For inbound rules, provide OUTSIDE_ACL. For
+            outbound rules, provide INSIDE_ACL.
+
+            source_ip (:class:`str`): Optional. IP address of the traffic
+            source.
+
+            source_netmaks (:class:`str`): Optional. Netmask for the source IP.
+
+            dest_ip (:class:`str`): Optional. IP address of the traffic
+            destination.
+
+            dest_netmask (:class:`str`): Optional. for the destination IP.
+
+            from_port (:class:`int`): Optional. Valid range is 1-65535
+            inclusive
+
+            to_port (:class:`int`): Optional. Valid range is 1-65535 inclusive
+
+            org_id (:class:`str`): Optional. The organization ID that owns the
+            server. Defaults to the current user's
+            :py:attr:`~aeronaut.resource.cloud.account.Account.org_id` if not
+            provided.
+
         Returns:
-            :mod:`aeronaut.resource.cloud.acl.CreateAclRuleStatus`
+            :class:`aeronaut.resource.cloud.acl.CreateAclRuleStatus`
         """
         org_id = self._ensure_org_id(org_id)
 
@@ -222,17 +291,18 @@ class CloudConnection(object):
     def create_network(self, location, name, org_id=None, description=None):
         """Creates a network with the given name in the given location
 
-        Args:
-            location (str): The data center where the network is to be created.
+        Parameters:
+            location (:class:`str`): The data center where the network is to be
+            created.
 
-            name (str): The name of the network
+            name (:class:`str`): The name of the network
 
-            org_id (str): The ID of the organization who will own this network.
-                If not provided, the ``org_id`` member of the authenticated
-                user's account will be used.
+            org_id (:class:`str`): The ID of the organization who will own this
+            network. If not provided, the ``org_id`` member of the
+            authenticated user's account will be used.
 
         Returns:
-            :mod:`aeronaut.resource.cloud.network.CreateNetworkStatus
+            :class:`aeronaut.resource.cloud.network.CreateNetworkStatus`
         """
         org_id = self._ensure_org_id(org_id)
 
@@ -253,8 +323,18 @@ class CloudConnection(object):
     def delete_acl_rule(self, network_id, rule_id, org_id=None):
         """Deletes the given rule from the given network
 
+        Parameters:
+            network_id (:class:`str`): The ID of the network associated with
+            the ACL rule.
+
+            rule_id (:class:`str`): The ID of the ACL rule.
+
+            org_id (:class:`str`): The ID of the organization who will own this
+            network. If not provided, the ``org_id`` member of the
+            authenticated user's account will be used.
+
         Returns:
-            :mod:`aeronaut.resource.cloud.acl.DeleteAclRuleStatus
+            :class:`aeronaut.resource.cloud.acl.DeleteAclRuleStatus`
         """
         org_id = self._ensure_org_id(org_id)
 
@@ -273,12 +353,12 @@ class CloudConnection(object):
         """Delete the given server. Note that a Server must be stopped before
         it can be deleted
 
-        Args:
-            org_id (str): Optional. The ID of the organization whose networks
-                you want listed. If not provided, the ``org_id`` member of the
-                authenticated user's account will be used.
+        Parameters:
+            server_id (:class:`str`): The ID of the server to delete.
 
-            server_id (str): The ID of the server to delete.
+            org_id (:class:`str`): Optional. The ID of the organization whose
+            networks you want listed. If not provided, the ``org_id`` member of
+            the authenticated user's account will be used.
 
         Returns:
             :mod:`aeronaut.resourse.cloud.server.DeleteServerStatus`
@@ -294,6 +374,18 @@ class CloudConnection(object):
 
     def deploy_server(self, name, image_id, org_id=None, **kwargs):
         """Deploys a new server from an existing customer or base image
+
+        Parameters:
+            name (:class:`str`): Human-friendly name of the server.
+
+            image_id (:class:`str`): ID of the image to use for this server.
+
+            org_id (:class:`str`): Optional. The ID of the organization whose
+            networks you want listed. If not provided, the ``org_id`` member of
+            the authenticated user's account will be used.
+
+        Additional arguments are listed in the source code of
+        :class:`aeronaut.request.cloud.v0_9.deploy_server.DeployServer`
 
         Returns:
             :mod:`aeronaut.resource.cloud.server.DeployServerStatus`
@@ -424,7 +516,7 @@ class CloudConnection(object):
     def list_networks(self, org_id=None, location=None):
         """Returns a list of networks
 
-        Args:
+        Parameters:
             org_id (str): The ID of the organization whose networks you want
                 listed. If not provided, the ``org_id`` member of the
                 authenticated user's account will be used.
@@ -450,13 +542,13 @@ class CloudConnection(object):
                      page_number=None, sort=None):
         """Returns a list of servers
 
-        Args:
+        Parameters:
             org_id (str): The ID of the organization whose networks you want
                 listed. If not provided, the ``org_id`` member of the
                 authenticated user's account will be used.
 
         Returns:
-            :mod:`aeronaut.resourse.cloud.server.ServerList
+            :mod:`aeronaut.resourse.cloud.server.ServerList`
         """
         params = {
             'org_id': self._ensure_org_id(org_id),
@@ -475,7 +567,7 @@ class CloudConnection(object):
         """Changes the name, description, CPU, or RAM profile of an existing
         deployed server.
 
-        Args:
+        Parameters:
             org_id (str): Optional. The ID of the organization whose networks
                 you want listed. If not provided, the ``org_id`` member of the
                 authenticated user's account will be used.
@@ -510,7 +602,7 @@ class CloudConnection(object):
     def poweroff_server(self, server_id, org_id=None):
         """Forcefully power off the server
 
-        Args:
+        Parameters:
             org_id (str): Optional. The ID of the organization whose networks
                 you want listed. If not provided, the ``org_id`` member of the
                 authenticated user's account will be used.
@@ -532,7 +624,7 @@ class CloudConnection(object):
     def reboot_server(self, server_id, org_id=None):
         """Gracefully reboot a server
 
-        Args:
+        Parameters:
             org_id (str): Optional. The ID of the organization whose networks
                 you want listed. If not provided, the ``org_id`` member of the
                 authenticated user's account will be used.
@@ -554,7 +646,7 @@ class CloudConnection(object):
     def reset_server(self, server_id, org_id=None):
         """Forcefully power cycle the server.
 
-        Args:
+        Parameters:
             org_id (str): Optional. The ID of the organization whose networks
                 you want listed. If not provided, the ``org_id`` member of the
                 authenticated user's account will be used.
@@ -576,7 +668,7 @@ class CloudConnection(object):
     def shutdown_server(self, server_id, org_id=None):
         """Gracefully stop a server
 
-        Args:
+        Parameters:
             org_id (str): Optional. The ID of the organization whose networks
                 you want listed. If not provided, the ``org_id`` member of the
                 authenticated user's account will be used.
@@ -598,7 +690,7 @@ class CloudConnection(object):
     def start_server(self, server_id, org_id=None):
         """Powers on an existing server
 
-        Args:
+        Parameters:
             org_id (str): Optional. The ID of the organization whose networks
                 you want listed. If not provided, the ``org_id`` member of the
                 authenticated user's account will be used.
@@ -620,7 +712,7 @@ class CloudConnection(object):
     def request(self, req_name, api_version=None, params={}, auth=None):
         """Sends a request to the provider.
 
-        Args:
+        Parameters:
             req_name (str): The name of the request. For a list of available
                 requests, see :mod:`aeronaut.request.cloud`
 
@@ -650,19 +742,6 @@ class CloudConnection(object):
 
         http_method = getattr(self._http_session, request.http_method())
         return Response(http_method(request.build_url(), **kwargs), request)
-
-    def update_admin_account(self, account):
-        """Updates an admin account.
-
-        WARNING: NOT FULLY IMPLEMENTED. NOT TESTED.
-        """
-        params = account.to_dict(only_dirty=True)
-        params['org_id'] = account.org_id
-        params['username'] = account.username
-        response = self.request('update_admin_account', params=params)
-        self._raise_if_unauthorized(response)
-
-        return self._deserialize('request_status.RequestStatus', response.body)
 
     # ===============
     # PRIVATE METHODS
@@ -715,16 +794,30 @@ class CloudConnection(object):
 
 
 def connect(endpoint):
-    """Creates a new connection to a DiData cloud provider
+    """Creates a new connection to a DiData Cloud Server or DiData Cloud
+    Network provider. Multiple calls to :py:func:`~aeronaut.cloud.connect` can
+    be made to establish connections to multiple providers.
 
-    Args:
-        endpoint (str): Then endpoing to connect to.
-            For example, 'api-na.dimensiondata.com') Do not prepend 'https://'
-            to the endpoint!
+    Parameters:
+        endpoint (:class:`str`): The endpoint to connect to.
+        For example: ``api-na.dimensiondata.com``
 
-    The module will look for the username and password to use against the given
-    endpoint in ``~/.aeronaut``. The file must be YAML formatted and must have
-    the following structure::
+    Returns:
+        An instance of :class:`~aeronaut.cloud.CloudConnection` representing
+        an authenticated connection to a DiData Cloud Server or DiData Cloud
+        Network provider.
+
+    Sample usage::
+
+        import aeronaut.cloud
+
+        conn = aeronaut.cloud.connect('api-na.dimensiondata.com')
+        servers = aeronaut.list_servers()
+
+    To successfully authenticate against the given endpoint, the function will
+    look for a file in the path ``~/.aeronaut`` with a section name matching
+    the same endpoint. The file must be valid YAML with the following
+    structure::
 
         api-na.dimensiondata.com:
             username: myuser
@@ -733,6 +826,37 @@ def connect(endpoint):
         another.endpoint.com:
             username: myotheruser
             password: mypasswordtoo!
+
+    Note that this function is really just syntactic sugar that wraps in a
+    single step the act of instantiating a
+    :class:`~aeronaut.cloud.CloudConnection` object and calling
+    :meth:`~aeronaut.cloud.CloudConnection.authenticate` against it. To learn
+    more about the authentication process,
+    see :meth:`~aeronaut.cloud.CloudConnection.authenticate`.
+
+    Here is a sample of how to use the module::
+
+        cloud = connect('api-na.dimensiondata.com')
+
+        image = cloud.list_base_images()[0]
+        network = cloud.list_networks()[0]
+
+        status = conn.deploy_server(name='My New Server',
+                                    description='First server deployment',
+                                    image_id=image.id,
+                                    start=True,
+                                    admin_password='32456sdkddd',
+                                    network_id=network.id)
+
+        assert status.is_success
+
+    All requests such as :meth:`~aeronaut.cloud.CloudConnection.deploy_server`
+    and :meth:`~aeronaut.cloud.CloudConnection.list_images` are delegated to
+    request classes under the :mod:`aeronaut.request.cloud` package. Whereas
+    the return values are instances of classes under the
+    :mod:`aeronaut.resource.cloud` package. Documentation is sparse in both
+    packages so you are required to read the source code to fully understand
+    what the request and resource objects do.
     """
     conn = CloudConnection(endpoint=endpoint)
     conn.authenticate()
