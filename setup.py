@@ -28,4 +28,9 @@ setup(name='Aeronaut',
       packages=find_packages(),
       test_suite='aeronaut.test',
       tests_require=['tox'],
-      cmdclass={'test': Tox})
+      cmdclass={'test': Tox},
+      install_requires=[
+          'PyYAML >=3.11',
+          'requests >=2.5.1',
+          'lxml >=3.4.2'
+      ])
