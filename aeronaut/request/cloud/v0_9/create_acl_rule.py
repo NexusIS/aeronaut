@@ -12,10 +12,10 @@ class CreateAclRule(Request):
                 'required': True
             },
             'dest_ip': {
-                'required': True
+                'required': False
             },
             'dest_netmask': {
-                'required': True
+                'required': False
             },
             'from_port': {
                 'required': True
@@ -36,10 +36,10 @@ class CreateAclRule(Request):
                 'required': True
             },
             'source_ip': {
-                'required': True
+                'required': False
             },
             'source_netmask': {
-                'required': True
+                'required': False
             },
             'to_port': {
                 'required': True
@@ -77,11 +77,16 @@ class CreateAclRule(Request):
                 <sourceIpRange/>
 """
 
-        template += """
+        if self.has_param('dest_ip'):
+            template += """
                 <destinationIpRange>
                     <ipAddress>{dest_ip}</ipAddress>
                     <netmask>{dest_netmask}</netmask>
                 </destinationIpRange>
+"""
+        else:
+            template += """
+                <destinationIpRange/>
 """
 
         if self.get_param('from_port') == self.get_param('to_port'):
