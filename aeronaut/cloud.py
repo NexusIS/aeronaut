@@ -758,7 +758,9 @@ class CloudConnection(object):
         return self._deserialize('server.StartServerStatus', response.body)
 
     def request(self, req_name, api_version=None, params={}, auth=None):
-        """Sends a request to the provider.
+        """Sends a request to the provider. This is a low-level method used by
+        all other operations exposed by this class. You do not need to call
+        it directly but it's here anyway in case you really want to use it.
 
         :param str req_name: The name of the request. For a list of available
             requests, see :mod:`aeronaut.request.cloud`
@@ -770,7 +772,35 @@ class CloudConnection(object):
 
         :param tuple auth: A tuple of two strings, username and password, to
             use should the server require authentication.
-        """
+
+        Example:
+
+        .. code-block:: python
+
+            params = {
+                'cpu_count': 2,
+                'memory': 2048
+            }
+
+            response = self.request('modify_server',
+                                    api_version='v0.9',
+                                    params=params)
+            print response.status_code
+
+        The above call results in the class
+        :class:`aeronaut.request.cloud.v0_9.modify_server.ModifyServer`
+        being used to send a request to the provider.
+
+        * The version ``v0_9`` is inferred from the ``api_version`` argument
+        * The class ``ModifyServer`` is inferred from the first argument,
+          ``modify_server``
+        * What values go into the params argument is determined by whatever
+          the :meth:`~aeronaut.cloud.request.v0_9.modify_server.ModifyServer.params`
+          method of the request class returns.
+
+        Note that this method returns a raw response object, not an object
+        representation of the XML returned by the server.
+        """  # NOQA
         if api_version is None:
             api_version = self.api_version
 
