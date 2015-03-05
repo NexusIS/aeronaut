@@ -21,7 +21,7 @@ class Tox(TestCommand):
 
 
 setup(name='Aeronaut',
-      version='0.1.0a2',
+      version='0.1.0a3',
       description='Aeronaut: A client library for DiData Cloud',
       author='Nexus IS Dev Team',
       author_email='dev@nexusis.com',
