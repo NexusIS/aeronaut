@@ -6,6 +6,10 @@ from aeronaut.resource.cloud.resource import Resource, ResourceList, Status
 from aeronaut.resource.cloud.software_label import SoftwareLabelList
 
 
+class AddStorageToServerStatus(Status):
+    pass
+
+
 class Backup(Resource):
 
     def _root_(self):

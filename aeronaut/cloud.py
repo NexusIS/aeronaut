@@ -128,6 +128,62 @@ class CloudConnection(object):
     # PUBLIC METHODS
     # ==============
 
+    def add_storage_to_server(self, server_id, size_gb, disk_speed_id=None,
+                              org_id=None):
+        """Creates an additional disk/volume for an existing server
+
+        :param str server_id: The ID of the server to add storage to.
+
+        :param int size_gb: The size of the disk in GB.
+
+        :param str disk_speed_id: Optional. The id of the disk speed to use. This
+            can be obtained via :meth:`aeronaut.resource.cloud.data_center.DataCenter.hypervisor.disk_speeds`.
+            See the sample usage below for guidance.
+
+        :param str org_id: Optional. The organization ID that owns the
+            server. Defaults to the current user's :py:attr:`~aeronaut.resource.cloud.account.Account.org_id`
+            if not provided.
+
+        :returns: The status of the operation.
+        :rtype: :class:`aeronaut.resource.cloud.server.AddStorageToServerStatus`
+
+        Sample usage:
+
+        .. code-block:: python
+
+            import aeronaut.cloud
+
+            conn = aeronaut.cloud.connect('api-na.dimensiondata.com')
+
+            filters = [
+                ['name', '==', 'myserver01']
+            ]
+
+            servers = conn.list_servers(filters=filters)
+            server = servers[0]
+
+            dc = next(dc for dc in conn.list_data_centers() if dc.is_default)
+            speed = dc.hypervisor.disk_speeds[0]
+
+            # The disk_speed_id argument below is optional
+            result = conn.add_storage_to_server(server_id=server.id,
+                                                size_gb=13,
+                                                disk_speed_id=speed.id)
+
+            print result.is_success
+            print result.result_detail
+        """  # NOQA
+        params = {
+            'org_id': self._ensure_org_id(org_id),
+            'server_id': server_id,
+            'size_gb': size_gb,
+            'disk_speed_id': disk_speed_id
+        }
+        response = self.request('add_storage_to_server', params=params)
+        self._raise_if_unauthorized(response)
+        return self._deserialize('server.AddStorageToServerStatus',
+                                 response.body)
+
     def authenticate(self):
         """Authenticates against the endpoint provided during initialization
 
@@ -401,7 +457,10 @@ class CloudConnection(object):
                                         admin_password='asdfkjhw',
                                         network_id=network.id)
             print status.is_success
-        """
+
+        Note how there is no argument for adding disks above. To add one,
+        you need to call :meth:`~aeronaut.cloud.CloudConnection.add_storage_to_server`
+        """  # NOQA
         kwargs['org_id'] = self._ensure_org_id(org_id)
         kwargs['name'] = name
         kwargs['image_id'] = image_id
