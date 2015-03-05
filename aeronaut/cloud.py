@@ -376,6 +376,31 @@ class CloudConnection(object):
 
         :returns: The status of the operation
         :rtype: :class:`aeronaut.resource.cloud.server.DeployServerStatus`
+
+        Sample usage:
+
+        .. code-block:: python
+
+            import aeronaut.cloud
+
+            conn = aeronaut.cloud.connect('api-na.dimensiondata.com')
+
+            dcs = conn.list_data_centers()
+            dc = next(dc for dc in dcs if dc.is_default)
+
+            images = conn.list_base_images(filters=filters)
+            image = images[0]
+
+            networks = conn.list_networks(location=dc.location)
+            network = networks[0]
+
+            status = conn.deploy_server(name='My new server',
+                                        description='A new deployment',
+                                        image_id=image.id,
+                                        start=True,
+                                        admin_password='asdfkjhw',
+                                        network_id=network.id)
+            print status.is_success
         """
         kwargs['org_id'] = self._ensure_org_id(org_id)
         kwargs['name'] = name
