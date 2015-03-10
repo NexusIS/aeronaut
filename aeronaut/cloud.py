@@ -970,7 +970,7 @@ def connect(endpoint):
         from aeronaut.cloud import connect
 
         conn = connect('api-na.dimensiondata.com')
-        servers = aeronaut.list_servers()
+        servers = conn.list_servers()
 
     To successfully authenticate against the given endpoint, the function will
     look for a file in the path ``~/.aeronaut`` with a section name matching
@@ -996,12 +996,12 @@ def connect(endpoint):
 
         from aeronaut.cloud import connect
 
-        cloud = connect('api-na.dimensiondata.com')
+        conn = connect('api-na.dimensiondata.com')
 
-        images = cloud.list_base_images()
+        images = conn.list_base_images()
         image = images[0]
 
-        networks = cloud.list_networks()
+        networks = conn.list_networks()
         network = networks[0]
 
         status = conn.deploy_server(name='My New Server',
